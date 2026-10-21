@@ -1,4 +1,4 @@
-# 🚀 Node.js Express + MongoDB Boilerplate (TypeScript)
+# Node.js Express + MongoDB Boilerplate (TypeScript)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-brightgreen?logo=node.js)
