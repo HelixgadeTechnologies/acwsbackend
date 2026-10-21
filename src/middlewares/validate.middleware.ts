@@ -23,7 +23,14 @@ const validate =
       return next(new ApiError(422, 'Validation failed', errors));
     }
 
-    (req as Record<string, unknown>)[target] = value;
+    if (target === 'body') {
+      req.body = value;
+    } else if (target === 'query') {
+      req.query = value;
+    } else if (target === 'params') {
+      req.params = value;
+    }
+
     next();
   };
 

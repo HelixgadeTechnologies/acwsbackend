@@ -5,7 +5,7 @@ import { RegisterInput, LoginInput, AuthResult } from '../interfaces/auth.interf
 
 const signToken = (id: string): string =>
   jwt.sign({ id }, process.env.JWT_SECRET as string, {
-    expiresIn: process.env.JWT_EXPIRES_IN as string,
+    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any,
   });
 
 /**
@@ -18,7 +18,7 @@ export const register = async (data: RegisterInput): Promise<AuthResult> => {
   }
 
   const user = await User.create(data);
-  const token = signToken(user._id as string);
+  const token = signToken(user._id.toString());
 
   return { user, token };
 };
@@ -33,7 +33,7 @@ export const login = async (data: LoginInput): Promise<AuthResult> => {
     throw new ApiError(401, 'Invalid email or password');
   }
 
-  const token = signToken(user._id as string);
+  const token = signToken(user._id.toString());
 
   return { user, token };
 };
