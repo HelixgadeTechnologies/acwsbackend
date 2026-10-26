@@ -28,6 +28,7 @@ interface EnvConfig {
   jwtExpiresIn: string;
   bcryptRounds: number;
   allowedOrigins: string[];
+  publicProfileBaseUrl: string;
 }
 
 const env: EnvConfig = {
@@ -41,6 +42,8 @@ const env: EnvConfig = {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  publicProfileBaseUrl:
+    process.env.PUBLIC_PROFILE_BASE_URL || 'http://localhost:5000/api/v1/vendors/public',
 };
 
 export default env;

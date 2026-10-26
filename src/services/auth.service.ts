@@ -37,3 +37,23 @@ export const login = async (data: LoginInput): Promise<AuthResult> => {
 
   return { user, token };
 };
+
+/**
+ * Authenticates an administrator and returns a JWT.
+ */
+export const adminLogin = async (data: LoginInput): Promise<AuthResult> => {
+  const user = await User.findOne({ email: data.email }).select('+password');
+
+  if (!user || !(await user.comparePassword(data.password))) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  if (user.role !== 'admin') {
+    throw new ApiError(403, 'Access denied. Administrator privileges required.');
+  }
+
+  const token = signToken(user._id.toString());
+
+  return { user, token };
+};
+
