@@ -1,11 +1,12 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Backend Boilerplate API",
+    "title": "ACWS 2027 (African Caribbean Wedding Show) Backend API",
     "version": "1.0.0",
-    "description": "Production-ready REST API built with Node.js, Express, TypeScript, and MongoDB.",
+    "description": "Official REST API for ACWS 2027 vendor registration, admin management dashboard, attendee tracking, and QR code digital business cards.",
     "contact": {
-      "name": "API Support"
+      "name": "ACWS Technology Team",
+      "email": "admin@acws.co.uk"
     }
   },
   "servers": [
@@ -20,46 +21,161 @@
   ],
   "tags": [
     {
-      "name": "Health",
-      "description": "Server health status"
+      "name": "Admin Auth",
+      "description": "Administrator login and profile verification"
     },
     {
-      "name": "Auth",
-      "description": "Authentication and authorization endpoints"
+      "name": "Admin Vendors",
+      "description": "Protected exhibitor management, metrics, status updates, and search"
     },
     {
-      "name": "Items",
-      "description": "Item management endpoints (protected)"
+      "name": "Admin Attendees",
+      "description": "Protected attendee list, batch import, and on-site check-in"
+    },
+    {
+      "name": "Public Vendors",
+      "description": "Public exhibitor registration and unauthenticated profile cards"
+    },
+    {
+      "name": "System",
+      "description": "Server health status and root discovery"
     }
   ],
   "paths": {
+    "/": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Root landing info",
+        "description": "Returns API metadata and documentation links.",
+        "servers": [{ "url": "/" }],
+        "responses": {
+          "200": { "description": "API status online" }
+        }
+      }
+    },
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": ["System"],
         "summary": "Check API health",
-        "description": "Returns current server health status and ISO timestamp.",
-        "servers": [
-          {
-            "url": "/",
-            "description": "Root endpoint"
+        "description": "Returns current server health and timestamp.",
+        "servers": [{ "url": "/" }],
+        "responses": {
+          "200": { "description": "Server is healthy" }
+        }
+      }
+    },
+    "/admin/login": {
+      "post": {
+        "tags": ["Admin Auth"],
+        "summary": "Administrator Login",
+        "description": "Authenticates an administrator with email and password, returning user details and JWT Bearer token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginInput"
+              }
+            }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "API is healthy",
+            "description": "Admin authenticated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthResponse"
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" },
+          "403": { "description": "Access denied. Administrator privileges required." }
+        }
+      }
+    },
+    "/admin/me": {
+      "get": {
+        "tags": ["Admin Auth"],
+        "summary": "Get current Admin Profile",
+        "description": "Returns authenticated administrator details.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current admin profile",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "ok"
-                    },
-                    "timestamp": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2026-10-20T16:00:00.000Z"
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": { "$ref": "#/components/schemas/AdminUser" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/admin/vendors/stats": {
+      "get": {
+        "tags": ["Admin Vendors"],
+        "summary": "Get vendor breakdown statistics",
+        "description": "Returns total count, status breakdown, and tier counts for dashboard metrics.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Vendor statistics retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/vendors": {
+      "get": {
+        "tags": ["Admin Vendors"],
+        "summary": "List paginated vendors with filters and search",
+        "description": "Search across business name, contact person, email, and reference code with status or category filters.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "approved", "waitlisted", "rejected"] } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "paymentTier", "in": "query", "schema": { "type": "string", "enum": ["standard", "premium", "catwalk", "executive"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendors retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "vendors": { "type": "array", "items": { "$ref": "#/components/schemas/Vendor" } },
+                        "total": { "type": "integer", "example": 54 },
+                        "totalPages": { "type": "integer", "example": 6 },
+                        "currentPage": { "type": "integer", "example": 1 }
+                      }
                     }
                   }
                 }
@@ -69,737 +185,435 @@
         }
       }
     },
-    "/auth/register": {
-      "post": {
-        "tags": ["Auth"],
-        "summary": "Register a new user",
-        "description": "Creates a new user account with hashed password and returns a signed JWT token.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Account created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Email already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests (Rate limit exceeded)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/login": {
-      "post": {
-        "tags": ["Auth"],
-        "summary": "Log in to an existing account",
-        "description": "Authenticates user credentials and returns a signed JWT token.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Logged in successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests (Rate limit exceeded)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/items": {
+    "/admin/vendors/{id}": {
       "get": {
-        "tags": ["Items"],
-        "summary": "List all items (Paginated)",
-        "description": "Retrieves paginated list of items owned by the authenticated user.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "tags": ["Admin Vendors"],
+        "summary": "Get vendor by ID or RefCode",
+        "description": "Retrieve full vendor submission breakdown by MongoDB _id or reference code (e.g. ACWS-2027-VND-XXXX).",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Page number (defaults to 1)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of items per page (defaults to 10)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "minimum": 1
-            }
-          }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "MongoDB ObjectId or Vendor refCode" }
         ],
         "responses": {
           "200": {
-            "description": "Items fetched successfully",
+            "description": "Vendor details retrieved",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedItemsResponse"
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Vendor" }
+                  }
                 }
               }
             }
           },
-          "401": {
-            "description": "Unauthorized - Missing or invalid token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": ["Items"],
-        "summary": "Create a new item",
-        "description": "Creates a new item associated with the authenticated user.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateItemInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Item created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ItemResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Missing or invalid token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "404": { "description": "Vendor not found" }
         }
       }
     },
-    "/items/{id}": {
-      "get": {
-        "tags": ["Items"],
-        "summary": "Get item by ID",
-        "description": "Fetches a single item by its ID, scoped to the authenticated user.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+    "/admin/vendors/{id}/status": {
+      "patch": {
+        "tags": ["Admin Vendors"],
+        "summary": "Update vendor review status and notes",
+        "description": "Change status between pending, approved, waitlisted, and rejected, and attach curator review notes.",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "MongoDB ObjectId of the item",
-            "schema": {
-              "type": "string",
-              "example": "664c5678abcd1234ef905678"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Item fetched successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ItemResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Item not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": ["Items"],
-        "summary": "Update an item",
-        "description": "Updates fields of an existing item belonging to the authenticated user.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "MongoDB ObjectId of the item",
-            "schema": {
-              "type": "string",
-              "example": "664c5678abcd1234ef905678"
-            }
-          }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "MongoDB ObjectId or Vendor refCode" }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateItemInput"
+                "$ref": "#/components/schemas/UpdateVendorStatusInput"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Item updated successfully",
+            "description": "Status updated successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemResponse"
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Vendor" }
+                  }
                 }
               }
             }
           },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Item not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "404": { "description": "Vendor not found" }
         }
-      },
-      "delete": {
-        "tags": ["Items"],
-        "summary": "Delete an item",
-        "description": "Permanently deletes an item owned by the authenticated user.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+      }
+    },
+    "/admin/attendees": {
+      "get": {
+        "tags": ["Admin Attendees"],
+        "summary": "List paginated attendees with search & filters",
+        "description": "Search by attendee name, email, phone, or refCode, and filter by ticket type or check-in status.",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "MongoDB ObjectId of the item",
-            "schema": {
-              "type": "string",
-              "example": "664c5678abcd1234ef905678"
-            }
-          }
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "ticketType", "in": "query", "schema": { "type": "string", "enum": ["standard", "vip", "catwalk-exclusive"] } },
+          { "name": "checkedIn", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
         ],
         "responses": {
           "200": {
-            "description": "Item deleted successfully",
+            "description": "Attendees list retrieved",
             "content": {
               "application/json": {
                 "schema": {
-                  "allOf": [
-                    { "$ref": "#/components/schemas/ApiResponse" },
-                    {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
                       "properties": {
-                        "data": {
-                          "type": "null",
-                          "example": null
-                        }
+                        "attendees": { "type": "array", "items": { "$ref": "#/components/schemas/Attendee" } },
+                        "total": { "type": "integer", "example": 120 },
+                        "page": { "type": "integer", "example": 1 },
+                        "totalPages": { "type": "integer", "example": 6 }
                       }
                     }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Item not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  }
                 }
               }
             }
           }
+        }
+      }
+    },
+    "/admin/attendees/{id}/checkin": {
+      "patch": {
+        "tags": ["Admin Attendees"],
+        "summary": "Check-in or toggle attendee arrival",
+        "description": "Toggles or explicitly sets checkedIn status and records checkedInAt timestamp by _id or refCode.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "MongoDB ObjectId or Attendee refCode" }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "checkedIn": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attendee check-in status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Attendee" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/attendees/batch": {
+      "post": {
+        "tags": ["Admin Attendees"],
+        "summary": "Batch import attendees",
+        "description": "Import multiple attendee records at once (from CSV or external ticket platforms).",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchAttendeesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attendees imported successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": { "type": "integer", "example": 25 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendors": {
+      "post": {
+        "tags": ["Public Vendors"],
+        "summary": "Register as an ACWS 2027 Exhibitor/Vendor",
+        "description": "Public registration form submission. Generates unique reference code and downloadable QR code.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVendorInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vendor registration submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "vendor": { "$ref": "#/components/schemas/Vendor" },
+                        "refCode": { "type": "string", "example": "ACWS-2027-VND-8X4K2" },
+                        "qrCode": { "type": "string", "example": "data:image/png;base64,..." },
+                        "publicProfileUrl": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendors/public/{refCode}": {
+      "get": {
+        "tags": ["Public Vendors"],
+        "summary": "Get public exhibitor details by RefCode",
+        "description": "Unauthenticated JSON endpoint returning brand information (businessName, website, instagram, phone, email).",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public brand profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "refCode": { "type": "string", "example": "ACWS-2027-VND-8X4K2" },
+                        "businessName": { "type": "string", "example": "Royal Elegance Bridal" },
+                        "category": { "type": "string", "example": "Bridal & Groom Attire" },
+                        "website": { "type": "string", "example": "https://royalelegance.co.uk" },
+                        "instagram": { "type": "string", "example": "@royalelegance_uk" },
+                        "phone": { "type": "string", "example": "+44 7911 123456" },
+                        "email": { "type": "string", "example": "contact@royalelegance.co.uk" },
+                        "baseLocation": { "type": "string", "example": "London, United Kingdom" },
+                        "qrCode": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendors/public/{refCode}/card": {
+      "get": {
+        "tags": ["Public Vendors"],
+        "summary": "View mobile-friendly Digital Business Card",
+        "description": "Direct unauthenticated HTML page rendered for smartphones when scanning the vendor's QR code.",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "HTML digital card" }
         }
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "bearerAuth": {
+      "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Enter your JWT token in the format: Bearer <token>"
+        "description": "Enter your JWT token obtained from POST /api/v1/admin/login"
       }
     },
     "schemas": {
-      "ApiResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "statusCode": {
-            "type": "integer",
-            "example": 200
-          },
-          "message": {
-            "type": "string",
-            "example": "Success"
-          },
-          "data": {
-            "type": "object",
-            "nullable": true
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": false
-          },
-          "statusCode": {
-            "type": "integer",
-            "example": 400
-          },
-          "message": {
-            "type": "string",
-            "example": "Error message description"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true,
-            "example": ["\"email\" must be a valid email"]
-          }
-        }
-      },
-      "User": {
-        "type": "object",
-        "properties": {
-          "_id": {
-            "type": "string",
-            "example": "664c1234abcd5678ef901234"
-          },
-          "name": {
-            "type": "string",
-            "example": "Jane Doe"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "jane.doe@example.com"
-          },
-          "role": {
-            "type": "string",
-            "enum": ["user", "admin"],
-            "example": "user"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-20T12:00:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-20T12:00:00.000Z"
-          }
-        }
-      },
-      "RegisterInput": {
-        "type": "object",
-        "required": ["name", "email", "password"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 100,
-            "example": "Jane Doe"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "jane.doe@example.com"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 8,
-            "description": "Must contain at least 8 characters, one uppercase letter, one lowercase letter, and one number",
-            "example": "StrongPass123!"
-          }
-        }
-      },
-      "LoginInput": {
+      "AdminLoginInput": {
         "type": "object",
         "required": ["email", "password"],
         "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "jane.doe@example.com"
-          },
-          "password": {
-            "type": "string",
-            "example": "StrongPass123!"
-          }
+          "email": { "type": "string", "format": "email", "example": "admin@acws.co.uk" },
+          "password": { "type": "string", "example": "Password123!" }
         }
       },
-      "AuthResponse": {
+      "AdminUser": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "statusCode": {
-            "type": "integer",
-            "example": 200
-          },
-          "message": {
-            "type": "string",
-            "example": "Logged in successfully"
-          },
+          "_id": { "type": "string", "example": "6ade356fd3fbaaf07646d485" },
+          "name": { "type": "string", "example": "ACWS Executive Curator" },
+          "email": { "type": "string", "example": "admin@acws.co.uk" },
+          "role": { "type": "string", "enum": ["admin", "superadmin", "curator"], "example": "superadmin" }
+        }
+      },
+      "AdminAuthResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Admin authenticated successfully" },
           "data": {
             "type": "object",
             "properties": {
-              "user": {
-                "$ref": "#/components/schemas/User"
-              },
-              "token": {
-                "type": "string",
-                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              }
+              "user": { "$ref": "#/components/schemas/AdminUser" },
+              "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
             }
           }
         }
       },
-      "Item": {
+      "Vendor": {
         "type": "object",
         "properties": {
-          "_id": {
-            "type": "string",
-            "example": "664c5678abcd1234ef905678"
-          },
-          "title": {
-            "type": "string",
-            "example": "Mechanical Keyboard"
-          },
-          "description": {
-            "type": "string",
-            "example": "Wireless mechanical keyboard with tactile switches"
-          },
-          "price": {
-            "type": "number",
-            "minimum": 0,
-            "example": 129.99
-          },
-          "inStock": {
-            "type": "boolean",
-            "example": true
-          },
-          "owner": {
-            "type": "string",
-            "example": "664c1234abcd5678ef901234"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-20T12:00:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-20T12:00:00.000Z"
-          }
+          "_id": { "type": "string", "example": "6ade356fd3fbaaf07646d485" },
+          "refCode": { "type": "string", "example": "ACWS-2027-VND-8X4K2" },
+          "businessName": { "type": "string", "example": "Royal Elegance Bridal" },
+          "category": { "type": "string", "example": "Attire & Bridal Wear" },
+          "contactName": { "type": "string", "example": "Amara Okafor" },
+          "contactPerson": { "type": "string", "example": "Amara Okafor" },
+          "email": { "type": "string", "example": "amara@royalelegance.co.uk" },
+          "phone": { "type": "string", "example": "+44 7911 123456" },
+          "website": { "type": "string", "example": "https://royalelegance.co.uk" },
+          "instagram": { "type": "string", "example": "@royalelegance_uk" },
+          "baseLocation": { "type": "string", "example": "London, Greater London" },
+          "paymentTier": { "type": "string", "enum": ["standard", "premium", "catwalk", "executive"], "example": "premium" },
+          "status": { "type": "string", "enum": ["pending", "approved", "waitlisted", "rejected"], "example": "pending" },
+          "weddingVolume": { "type": "string", "example": "25-40/yr" },
+          "typicalSpend": { "type": "string", "example": "£6,000+" },
+          "serviceAreas": { "type": "array", "items": { "type": "string" }, "example": ["Greater London", "Nationwide UK"] },
+          "marketsServed": { "type": "array", "items": { "type": "string" }, "example": ["Nigerian", "Ghanaian", "Caribbean"] },
+          "notes": { "type": "string", "example": "Curator approved for premium booth" },
+          "curatorNotes": { "type": "string", "example": "Curator approved for premium booth" },
+          "qrCode": { "type": "string", "example": "data:image/png;base64,..." },
+          "publicProfileUrl": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
         }
       },
-      "CreateItemInput": {
+      "CreateVendorInput": {
         "type": "object",
-        "required": ["title", "price"],
+        "required": ["businessName", "category", "email"],
         "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 120,
-            "example": "Mechanical Keyboard"
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 1000,
-            "example": "Wireless mechanical keyboard with tactile switches"
-          },
-          "price": {
-            "type": "number",
-            "minimum": 0,
-            "example": 129.99
-          },
-          "inStock": {
-            "type": "boolean",
-            "default": true,
-            "example": true
-          }
+          "businessName": { "type": "string", "example": "Royal Elegance Bridal" },
+          "category": { "type": "string", "example": "Attire & Bridal Wear" },
+          "contactName": { "type": "string", "example": "Amara Okafor" },
+          "email": { "type": "string", "format": "email", "example": "amara@royalelegance.co.uk" },
+          "phone": { "type": "string", "example": "+44 7911 123456" },
+          "website": { "type": "string", "example": "https://royalelegance.co.uk" },
+          "instagram": { "type": "string", "example": "@royalelegance_uk" },
+          "baseLocation": { "type": "string", "example": "London, Greater London" },
+          "paymentTier": { "type": "string", "enum": ["standard", "premium", "catwalk", "executive"], "example": "premium" },
+          "weddingVolume": { "type": "string", "example": "25-40/yr" },
+          "typicalSpend": { "type": "string", "example": "£6,000+" },
+          "serviceAreas": { "type": "array", "items": { "type": "string" } },
+          "marketsServed": { "type": "array", "items": { "type": "string" } }
         }
       },
-      "UpdateItemInput": {
+      "UpdateVendorStatusInput": {
         "type": "object",
+        "required": ["status"],
         "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 120,
-            "example": "Custom Mechanical Keyboard"
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 1000,
-            "example": "Updated mechanical keyboard with hot-swappable switches"
-          },
-          "price": {
-            "type": "number",
-            "minimum": 0,
-            "example": 149.99
-          },
-          "inStock": {
-            "type": "boolean",
-            "example": true
-          }
+          "status": { "type": "string", "enum": ["pending", "approved", "waitlisted", "rejected"], "example": "approved" },
+          "notes": { "type": "string", "example": "Curator approved for catwalk allocation" }
         }
       },
-      "ItemResponse": {
+      "VendorStatsResponse": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "statusCode": {
-            "type": "integer",
-            "example": 200
-          },
-          "message": {
-            "type": "string",
-            "example": "Item fetched successfully"
-          },
+          "success": { "type": "boolean", "example": true },
           "data": {
             "type": "object",
             "properties": {
-              "item": {
-                "$ref": "#/components/schemas/Item"
-              }
+              "total": { "type": "integer", "example": 54 },
+              "approved": { "type": "integer", "example": 28 },
+              "pending": { "type": "integer", "example": 16 },
+              "waitlisted": { "type": "integer", "example": 7 },
+              "rejected": { "type": "integer", "example": 3 },
+              "catwalk": { "type": "integer", "example": 8 },
+              "premium": { "type": "integer", "example": 18 },
+              "standard": { "type": "integer", "example": 28 },
+              "executive": { "type": "integer", "example": 0 }
             }
           }
         }
       },
-      "PaginatedItemsResponse": {
+      "Attendee": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "statusCode": {
-            "type": "integer",
-            "example": 200
-          },
-          "message": {
-            "type": "string",
-            "example": "Items fetched successfully"
-          },
-          "data": {
-            "type": "object",
-            "properties": {
-              "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Item"
-                }
-              },
-              "total": {
-                "type": "integer",
-                "example": 25
-              },
-              "page": {
-                "type": "integer",
-                "example": 1
-              },
-              "pages": {
-                "type": "integer",
-                "example": 3
+          "_id": { "type": "string", "example": "6ade356fd3fbaaf07646d499" },
+          "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+          "fullName": { "type": "string", "example": "Zara & Michael Sterling" },
+          "partnerName": { "type": "string", "example": "Michael Sterling" },
+          "email": { "type": "string", "example": "zara@example.com" },
+          "phone": { "type": "string", "example": "+44 7111 222333" },
+          "ticketType": { "type": "string", "enum": ["standard", "vip", "catwalk-exclusive"], "example": "vip" },
+          "pricePaid": { "type": "number", "example": 45 },
+          "paymentStatus": { "type": "string", "enum": ["paid", "pending", "complimentary"], "example": "paid" },
+          "weddingDate": { "type": "string", "example": "2027-08-15" },
+          "fastTrackPass": { "type": "boolean", "example": true },
+          "checkedIn": { "type": "boolean", "example": false },
+          "checkedInAt": { "type": "string", "format": "date-time", "nullable": true },
+          "registeredAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BatchAttendeesInput": {
+        "type": "object",
+        "required": ["attendees"],
+        "properties": {
+          "attendees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["fullName", "email"],
+              "properties": {
+                "fullName": { "type": "string", "example": "Kofi Mensah" },
+                "email": { "type": "string", "format": "email", "example": "kofi@example.com" },
+                "phone": { "type": "string", "example": "+44 7999 888777" },
+                "partnerName": { "type": "string" },
+                "ticketType": { "type": "string", "enum": ["standard", "vip", "catwalk-exclusive"], "example": "standard" },
+                "pricePaid": { "type": "number", "example": 20 }
               }
             }
           }
