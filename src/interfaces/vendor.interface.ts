@@ -1,7 +1,7 @@
 import { Document, Types } from 'mongoose';
 
 export type VendorStatus = 'pending' | 'approved' | 'rejected' | 'waitlisted';
-export type PaymentTier = 'standard' | 'premium' | 'catwalk';
+export type PaymentTier = 'standard' | 'premium' | 'catwalk' | 'executive';
 
 export interface IVendor extends Document {
   _id: Types.ObjectId;
@@ -9,6 +9,7 @@ export interface IVendor extends Document {
   status: VendorStatus;
   businessName: string;
   contactPerson: string;
+  contactName?: string;
   email: string;
   phone: string;
   instagram: string;
@@ -24,6 +25,8 @@ export interface IVendor extends Document {
   paymentTier: PaymentTier;
   privacyAcknowledged: boolean;
   marketingConsent: boolean;
+  notes?: string;
+  curatorNotes?: string;
   qrCode?: string;
   publicProfileUrl?: string;
   createdAt: Date;
@@ -46,22 +49,25 @@ export interface PublicVendorProfile {
 export interface CreateVendorInput {
   refCode?: string;
   businessName: string;
-  contactPerson: string;
+  contactPerson?: string;
+  contactName?: string;
   email: string;
-  phone: string;
-  instagram: string;
+  phone?: string;
+  instagram?: string;
   website?: string;
-  baseLocation: string;
-  serviceAreas: string[];
+  baseLocation?: string;
+  serviceAreas?: string[];
   category: string;
-  marketsServed: string[];
+  marketsServed?: string[];
   weddingVolume?: string;
   typicalSpend?: string;
-  objectives: string[];
-  discoveryChannels: string[];
-  paymentTier: PaymentTier;
-  privacyAcknowledged: boolean;
+  objectives?: string[];
+  discoveryChannels?: string[];
+  paymentTier?: PaymentTier;
+  privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
+  notes?: string;
+  curatorNotes?: string;
 }
 
 export interface VendorQueryFilters {
@@ -72,4 +78,16 @@ export interface VendorQueryFilters {
   category?: string;
   paymentTier?: PaymentTier;
   sortBy?: string;
+}
+
+export interface VendorStatsResult {
+  total: number;
+  approved: number;
+  pending: number;
+  waitlisted: number;
+  rejected: number;
+  catwalk: number;
+  premium: number;
+  standard: number;
+  executive?: number;
 }

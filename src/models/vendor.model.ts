@@ -35,8 +35,13 @@ const vendorSchema = new Schema<IVendor>(
     },
     contactPerson: {
       type: String,
-      required: [true, 'Contact person is required'],
       trim: true,
+      default: '',
+    },
+    contactName: {
+      type: String,
+      trim: true,
+      default: '',
     },
     email: {
       type: String,
@@ -48,13 +53,13 @@ const vendorSchema = new Schema<IVendor>(
     },
     phone: {
       type: String,
-      required: [true, 'Phone number is required'],
       trim: true,
+      default: '',
     },
     instagram: {
       type: String,
-      required: [true, 'Instagram handle is required'],
       trim: true,
+      default: '',
     },
     website: {
       type: String,
@@ -63,16 +68,12 @@ const vendorSchema = new Schema<IVendor>(
     },
     baseLocation: {
       type: String,
-      required: [true, 'Base location is required'],
       trim: true,
+      default: '',
     },
     serviceAreas: {
       type: [String],
-      required: [true, 'At least one service area is required'],
-      validate: {
-        validator: (v: string[]) => Array.isArray(v) && v.length > 0,
-        message: 'At least one service area must be specified',
-      },
+      default: [],
     },
     category: {
       type: String,
@@ -82,11 +83,7 @@ const vendorSchema = new Schema<IVendor>(
     },
     marketsServed: {
       type: [String],
-      required: [true, 'At least one market served is required'],
-      validate: {
-        validator: (v: string[]) => Array.isArray(v) && v.length > 0,
-        message: 'At least one market served must be specified',
-      },
+      default: [],
     },
     weddingVolume: {
       type: String,
@@ -100,33 +97,35 @@ const vendorSchema = new Schema<IVendor>(
     },
     objectives: {
       type: [String],
-      required: [true, 'Objectives are required (1 to 3 items)'],
-      validate: {
-        validator: (v: string[]) => Array.isArray(v) && v.length >= 1 && v.length <= 3,
-        message: 'Objectives must contain between 1 and 3 items',
-      },
+      default: [],
     },
     discoveryChannels: {
       type: [String],
-      required: [true, 'Discovery channels are required (1 to 3 items)'],
-      validate: {
-        validator: (v: string[]) => Array.isArray(v) && v.length >= 1 && v.length <= 3,
-        message: 'Discovery channels must contain between 1 and 3 items',
-      },
+      default: [],
     },
     paymentTier: {
       type: String,
-      required: [true, 'Payment tier is required'],
-      enum: ['standard', 'premium', 'catwalk'],
+      enum: ['standard', 'premium', 'catwalk', 'executive'],
+      default: 'standard',
       index: true,
     },
     privacyAcknowledged: {
       type: Boolean,
-      required: [true, 'Privacy acknowledgement is required'],
+      default: true,
     },
     marketingConsent: {
       type: Boolean,
       default: false,
+    },
+    notes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    curatorNotes: {
+      type: String,
+      default: '',
+      trim: true,
     },
     qrCode: {
       type: String,
@@ -142,10 +141,16 @@ const vendorSchema = new Schema<IVendor>(
   }
 );
 
-// Fallback pre-save hook to ensure refCode is set
+// Pre-save hook: ensure refCode is set and harmonize contactPerson / contactName
 vendorSchema.pre<IVendor>('save', function (next) {
   if (!this.refCode) {
     this.refCode = generateRefCode();
+  }
+  if (!this.contactPerson && this.contactName) {
+    this.contactPerson = this.contactName;
+  }
+  if (!this.contactName && this.contactPerson) {
+    this.contactName = this.contactPerson;
   }
   next();
 });

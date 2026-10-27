@@ -350,7 +350,7 @@ export const renderVendorCardHtml = (vendor: PublicVendorProfile): string => {
  */
 export const getAdminVendors = async (
   query: VendorQueryFilters
-): Promise<{ vendors: IVendor[]; total: number; page: number; totalPages: number }> => {
+): Promise<{ vendors: IVendor[]; total: number; totalPages: number; currentPage: number; page: number }> => {
   const page = Number(query.page) || 1;
   const limit = Math.min(Number(query.limit) || 20, 100);
   const skip = (page - 1) * limit;
@@ -375,9 +375,11 @@ export const getAdminVendors = async (
     filter.$or = [
       { businessName: searchRegex },
       { contactPerson: searchRegex },
+      { contactName: searchRegex },
       { email: searchRegex },
       { refCode: searchRegex },
       { instagram: searchRegex },
+      { category: searchRegex },
     ];
   }
 
@@ -391,76 +393,112 @@ export const getAdminVendors = async (
   return {
     vendors,
     total,
-    page,
     totalPages,
+    currentPage: page,
+    page,
   };
 };
 
 /**
- * Get single vendor by ID
+ * Get single vendor by MongoDB _id OR refCode
  */
-export const getVendorById = async (id: string): Promise<IVendor> => {
-  if (!mongoose.isValidObjectId(id)) {
-    throw new ApiError(400, 'Invalid vendor ID');
+export const getVendorById = async (idOrRef: string): Promise<IVendor> => {
+  const clean = idOrRef.trim();
+  let vendor: IVendor | null = null;
+
+  if (mongoose.isValidObjectId(clean)) {
+    vendor = await Vendor.findById(clean);
   }
 
-  const vendor = await Vendor.findById(id);
   if (!vendor) {
-    throw new ApiError(404, 'Vendor not found');
+    vendor = await Vendor.findOne({ refCode: clean.toUpperCase() });
+  }
+
+  if (!vendor) {
+    throw new ApiError(404, `Vendor with identifier "${clean}" not found`);
   }
 
   return vendor;
 };
 
 /**
- * Update vendor application review status
+ * Update vendor application review status and notes by MongoDB _id OR refCode
  */
 export const updateVendorStatus = async (
-  id: string,
-  status: VendorStatus
+  idOrRef: string,
+  status: VendorStatus,
+  notes?: string
 ): Promise<IVendor> => {
-  if (!mongoose.isValidObjectId(id)) {
-    throw new ApiError(400, 'Invalid vendor ID');
+  const clean = idOrRef.trim();
+  const updateData: Record<string, any> = { status };
+
+  if (notes !== undefined) {
+    updateData.notes = notes;
+    updateData.curatorNotes = notes;
   }
 
-  const vendor = await Vendor.findByIdAndUpdate(
-    id,
-    { status },
-    { new: true, runValidators: true }
-  );
+  let vendor: IVendor | null = null;
+
+  if (mongoose.isValidObjectId(clean)) {
+    vendor = await Vendor.findByIdAndUpdate(clean, updateData, {
+      new: true,
+      runValidators: true,
+    });
+  }
 
   if (!vendor) {
-    throw new ApiError(404, 'Vendor not found');
+    vendor = await Vendor.findOneAndUpdate(
+      { refCode: clean.toUpperCase() },
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+  }
+
+  if (!vendor) {
+    throw new ApiError(404, `Vendor with identifier "${clean}" not found`);
   }
 
   return vendor;
 };
 
 /**
- * Get vendor aggregate stats (by status, tier, and category)
+ * Get vendor aggregate stats matching exact admin dashboard metrics
  */
 export const getVendorStats = async () => {
-  const [total, byStatus, byTier, byCategory] = await Promise.all([
+  const [
+    total,
+    approved,
+    pending,
+    waitlisted,
+    rejected,
+    catwalk,
+    premium,
+    standard,
+    executive,
+  ] = await Promise.all([
     Vendor.countDocuments(),
-    Vendor.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-      { $project: { status: '$_id', count: 1, _id: 0 } },
-    ]),
-    Vendor.aggregate([
-      { $group: { _id: '$paymentTier', count: { $sum: 1 } } },
-      { $project: { tier: '$_id', count: 1, _id: 0 } },
-    ]),
-    Vendor.aggregate([
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $project: { category: '$_id', count: 1, _id: 0 } },
-    ]),
+    Vendor.countDocuments({ status: 'approved' }),
+    Vendor.countDocuments({ status: 'pending' }),
+    Vendor.countDocuments({ status: 'waitlisted' }),
+    Vendor.countDocuments({ status: 'rejected' }),
+    Vendor.countDocuments({ paymentTier: 'catwalk' }),
+    Vendor.countDocuments({ paymentTier: 'premium' }),
+    Vendor.countDocuments({ paymentTier: 'standard' }),
+    Vendor.countDocuments({ paymentTier: 'executive' }),
   ]);
 
   return {
     total,
-    byStatus,
-    byTier,
-    byCategory,
+    approved,
+    pending,
+    waitlisted,
+    rejected,
+    catwalk,
+    premium,
+    standard,
+    executive,
   };
 };

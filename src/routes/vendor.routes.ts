@@ -6,10 +6,11 @@ import { createVendorSchema } from './schemas/vendor.schema';
 const router = Router();
 
 /**
- * @route   POST /api/v1/vendors/register
+ * @route   POST /api/v1/vendors and POST /api/v1/vendors/register
  * @desc    Public exhibitor/vendor registration for ACWS 2027
  * @access  Public
  */
+router.post('/', validate(createVendorSchema), vendorController.register);
 router.post('/register', validate(createVendorSchema), vendorController.register);
 
 /**

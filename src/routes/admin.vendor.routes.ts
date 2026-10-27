@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as adminVendorController from '../controllers/admin.vendor.controller';
-import { protect, restrictTo } from '../middlewares/auth.middleware';
+import { protectAdmin } from '../middlewares/auth.middleware';
 import validate from '../middlewares/validate.middleware';
 import {
   vendorQuerySchema,
@@ -9,14 +9,15 @@ import {
 
 const router = Router();
 
-// Protect all admin vendor routes with JWT and role check
-router.use(protect, restrictTo('admin'));
+// Protect all admin vendor routes with protectAdmin middleware
+router.use(protectAdmin);
 
 /**
- * @route   GET /api/v1/admin/vendors/summary/stats
- * @desc    Get aggregate vendor statistics (by status, tier, category)
+ * @route   GET /api/v1/admin/vendors/stats
+ * @desc    Get aggregate vendor statistics matching dashboard metrics
  * @access  Admin only
  */
+router.get('/stats', adminVendorController.getVendorStats);
 router.get('/summary/stats', adminVendorController.getVendorStats);
 
 /**
@@ -28,14 +29,14 @@ router.get('/', validate(vendorQuerySchema, 'query'), adminVendorController.getV
 
 /**
  * @route   GET /api/v1/admin/vendors/:id
- * @desc    Get full submission details for a specific vendor
+ * @desc    Get full submission details for a specific vendor (accepts MongoDB _id OR refCode)
  * @access  Admin only
  */
 router.get('/:id', adminVendorController.getVendorById);
 
 /**
  * @route   PATCH /api/v1/admin/vendors/:id/status
- * @desc    Update vendor application status (pending, approved, rejected, waitlisted)
+ * @desc    Update vendor application status and optional notes (accepts MongoDB _id OR refCode)
  * @access  Admin only
  */
 router.patch(

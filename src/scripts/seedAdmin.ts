@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import mongoose from 'mongoose';
+import Admin from '../models/admin.model';
 import User from '../models/user.model';
 import logger from '../utils/logger';
 
@@ -15,34 +16,49 @@ const seedAdmin = async () => {
     await mongoose.connect(mongoUri);
     logger.info('Connected to MongoDB for admin seeding.');
 
-    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@acws.com').toLowerCase().trim();
-    const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPass123!';
-    const adminName = process.env.ADMIN_NAME || 'ACWS Administrator';
+    const superadminEmail = (process.env.ADMIN_EMAIL || 'admin@acws.co.uk').toLowerCase().trim();
+    const superadminPassword = process.env.ADMIN_PASSWORD || 'Password123!';
+    const superadminName = process.env.ADMIN_NAME || 'ACWS Executive Curator';
+    const superadminRole = 'superadmin';
 
-    let admin = await User.findOne({ email: adminEmail });
-
+    // Seed into Admin collection
+    let admin = await Admin.findOne({ email: superadminEmail });
     if (admin) {
-      if (admin.role !== 'admin') {
-        admin.role = 'admin';
-        await admin.save();
-        logger.info(`Existing user "${adminEmail}" was upgraded to role "admin".`);
-      } else {
-        logger.info(`Admin user "${adminEmail}" already exists with role "admin".`);
-      }
+      admin.role = 'superadmin';
+      admin.name = superadminName;
+      admin.password = superadminPassword;
+      await admin.save();
+      logger.info(`Updated Admin account "${superadminEmail}".`);
     } else {
-      admin = await User.create({
-        name: adminName,
-        email: adminEmail,
-        password: adminPassword,
+      admin = await Admin.create({
+        name: superadminName,
+        email: superadminEmail,
+        password: superadminPassword,
+        role: superadminRole,
+      });
+      logger.info(`Created new Superadmin account in Admin collection.`);
+    }
+
+    // Mirror to User collection
+    let user = await User.findOne({ email: superadminEmail });
+    if (user) {
+      user.role = 'admin';
+      user.name = superadminName;
+      user.password = superadminPassword;
+      await user.save();
+    } else {
+      await User.create({
+        name: superadminName,
+        email: superadminEmail,
+        password: superadminPassword,
         role: 'admin',
       });
-      logger.info(`Admin user created successfully.`);
     }
 
     console.log('\n=============================================');
-    console.log('✅ Admin Account Ready');
-    console.log(`   Email:    ${adminEmail}`);
-    console.log(`   Password: ${adminPassword}`);
+    console.log('✅ ACWS Superadmin Account Ready');
+    console.log(`   Email:    ${superadminEmail}`);
+    console.log(`   Password: ${superadminPassword}`);
     console.log(`   Role:     ${admin.role}`);
     console.log('=============================================\n');
 

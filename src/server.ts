@@ -6,6 +6,7 @@ import './config/env';
 
 import app from './app';
 import connectDB from './config/db';
+import { bootstrapSuperadmin } from './config/bootstrap';
 import logger from './utils/logger';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -13,6 +14,7 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // ── Boot sequence ──────────────────────────────────────────────────────────
 (async () => {
   await connectDB();
+  await bootstrapSuperadmin();
 
   const server = app.listen(PORT, () => {
     logger.info(`🚀  Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
