@@ -48,6 +48,18 @@ if (process.env.NODE_ENV !== 'test') {
   );
 }
 
+// ── Root endpoint ────────────────────────────────────────────────────────
+app.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: 'African & Caribbean Wedding Show 2027 (ACWS) Backend API',
+    status: 'online',
+    documentation: '/api-docs',
+    health: '/health',
+    apiBase: '/api/v1',
+  });
+});
+
 // ── Health check ──────────────────────────────────────────────────────────
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
