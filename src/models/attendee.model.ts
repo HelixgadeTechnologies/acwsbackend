@@ -27,11 +27,6 @@ const attendeeSchema = new Schema<IAttendee>(
       trim: true,
       index: true,
     },
-    partnerName: {
-      type: String,
-      trim: true,
-      default: '',
-    },
     email: {
       type: String,
       required: [true, 'Email is required'],
@@ -45,11 +40,53 @@ const attendeeSchema = new Schema<IAttendee>(
       trim: true,
       default: '',
     },
+    attendeeType: {
+      type: String,
+      trim: true,
+      default: 'Bride',
+      index: true,
+    },
+    weddingTimeframe: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    weddingLocation: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    weddingBudget: {
+      type: String,
+      trim: true,
+      default: 'Not specified',
+    },
+    guestCount: {
+      type: String,
+      trim: true,
+      default: 'Not specified',
+    },
+    servicesNeeded: {
+      type: [String],
+      default: [],
+    },
+    culturalInfluences: {
+      type: [String],
+      default: [],
+    },
+    discoveryChannel: {
+      type: String,
+      trim: true,
+      default: 'Instagram',
+    },
     ticketType: {
       type: String,
-      enum: ['standard', 'vip', 'catwalk-exclusive'],
-      default: 'standard',
+      default: 'General Admission',
       index: true,
+    },
+    ticketPrice: {
+      type: String,
+      default: '£20',
     },
     pricePaid: {
       type: Number,
@@ -61,6 +98,23 @@ const attendeeSchema = new Schema<IAttendee>(
       enum: ['paid', 'pending', 'complimentary'],
       default: 'paid',
       index: true,
+    },
+    privacyAcknowledged: {
+      type: Boolean,
+      default: true,
+    },
+    marketingConsent: {
+      type: Boolean,
+      default: false,
+    },
+    partnerConsent: {
+      type: Boolean,
+      default: false,
+    },
+    partnerName: {
+      type: String,
+      trim: true,
+      default: '',
     },
     weddingDate: {
       type: String,
@@ -90,6 +144,14 @@ const attendeeSchema = new Schema<IAttendee>(
     timestamps: true,
   }
 );
+
+// Compound text index for search
+attendeeSchema.index({
+  fullName: 'text',
+  email: 'text',
+  refCode: 'text',
+  phone: 'text',
+});
 
 // Fallback pre-save hook
 attendeeSchema.pre<IAttendee>('save', function (next) {

@@ -8,6 +8,34 @@ import {
 } from '../interfaces/attendee.interface';
 
 /**
+ * Register a new attendee pass
+ */
+export const registerAttendee = async (
+  data: CreateAttendeeInput
+): Promise<IAttendee> => {
+  let price = 20;
+  let fastTrack = false;
+  const tType = (data.ticketType || '').toLowerCase();
+
+  if (tType.includes('vip')) {
+    price = 55;
+    fastTrack = true;
+  } else if (tType.includes('couple')) {
+    price = 35;
+  }
+
+  const attendee = await Attendee.create({
+    ...data,
+    refCode: data.refCode ? data.refCode.toUpperCase().trim() : generateAttendeeRefCode(),
+    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : price,
+    fastTrackPass: fastTrack,
+    registeredAt: new Date(),
+  });
+
+  return attendee;
+};
+
+/**
  * Fetch paginated list of attendees with search and filtering for Admin
  */
 export const getAdminAttendees = async (
@@ -24,6 +52,10 @@ export const getAdminAttendees = async (
     filter.ticketType = query.ticketType;
   }
 
+  if (query.attendeeType) {
+    filter.attendeeType = query.attendeeType;
+  }
+
   if (query.checkedIn !== undefined && query.checkedIn !== '') {
     filter.checkedIn = query.checkedIn === true || query.checkedIn === 'true';
   }
@@ -32,10 +64,11 @@ export const getAdminAttendees = async (
     const searchRegex = new RegExp(query.search.trim(), 'i');
     filter.$or = [
       { fullName: searchRegex },
-      { partnerName: searchRegex },
       { email: searchRegex },
       { phone: searchRegex },
       { refCode: searchRegex },
+      { attendeeType: searchRegex },
+      { weddingLocation: searchRegex },
     ];
   }
 
@@ -103,9 +136,9 @@ export const batchImportAttendees = async (
     refCode: item.refCode ? item.refCode.toUpperCase().trim() : generateAttendeeRefCode(),
     fullName: item.fullName || 'Anonymous Guest',
     email: item.email ? item.email.toLowerCase().trim() : '',
-    ticketType: item.ticketType || 'standard',
+    ticketType: item.ticketType || 'General Admission',
     paymentStatus: item.paymentStatus || 'paid',
-    pricePaid: typeof item.pricePaid === 'number' ? item.pricePaid : 0,
+    pricePaid: typeof item.pricePaid === 'number' ? item.pricePaid : 20,
     fastTrackPass: Boolean(item.fastTrackPass),
     checkedIn: Boolean(item.checkedIn),
     registeredAt: new Date(),

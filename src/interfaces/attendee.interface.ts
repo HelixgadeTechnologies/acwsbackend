@@ -1,18 +1,29 @@
 import { Document, Types } from 'mongoose';
 
-export type TicketType = 'standard' | 'vip' | 'catwalk-exclusive';
 export type PaymentStatus = 'paid' | 'pending' | 'complimentary';
 
 export interface IAttendee extends Document {
   _id: Types.ObjectId;
   refCode: string;
   fullName: string;
-  partnerName?: string;
   email: string;
   phone?: string;
-  ticketType: TicketType;
+  attendeeType: string;
+  weddingTimeframe?: string;
+  weddingLocation?: string;
+  weddingBudget?: string;
+  guestCount?: string;
+  servicesNeeded: string[];
+  culturalInfluences: string[];
+  discoveryChannel: string;
+  ticketType: string;
+  ticketPrice: string;
   pricePaid: number;
   paymentStatus: PaymentStatus;
+  privacyAcknowledged: boolean;
+  marketingConsent: boolean;
+  partnerConsent: boolean;
+  partnerName?: string;
   weddingDate?: string;
   fastTrackPass: boolean;
   checkedIn: boolean;
@@ -25,12 +36,24 @@ export interface IAttendee extends Document {
 export interface CreateAttendeeInput {
   refCode?: string;
   fullName: string;
-  partnerName?: string;
   email: string;
   phone?: string;
-  ticketType?: TicketType;
+  attendeeType?: string;
+  weddingTimeframe?: string;
+  weddingLocation?: string;
+  weddingBudget?: string;
+  guestCount?: string;
+  servicesNeeded?: string[];
+  culturalInfluences?: string[];
+  discoveryChannel?: string;
+  ticketType?: string;
+  ticketPrice?: string;
   pricePaid?: number;
   paymentStatus?: PaymentStatus;
+  privacyAcknowledged?: boolean;
+  marketingConsent?: boolean;
+  partnerConsent?: boolean;
+  partnerName?: string;
   weddingDate?: string;
   fastTrackPass?: boolean;
   checkedIn?: boolean;
@@ -40,7 +63,8 @@ export interface AttendeeQueryFilters {
   page?: number;
   limit?: number;
   search?: string;
-  ticketType?: TicketType;
+  ticketType?: string;
+  attendeeType?: string;
   checkedIn?: string | boolean;
   sortBy?: string;
 }
