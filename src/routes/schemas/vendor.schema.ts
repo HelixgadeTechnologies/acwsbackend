@@ -1,5 +1,35 @@
 import Joi from 'joi';
 
+const normalizePaymentTier = (value: any) => {
+  if (!value || typeof value !== 'string') {
+    return 'standard';
+  }
+  const clean = value.toLowerCase().trim();
+  if (clean.includes('catwalk')) return 'catwalk';
+  if (clean.includes('premium')) return 'premium';
+  if (clean.includes('executive')) return 'executive';
+  if (clean.includes('standard')) return 'standard';
+  if (['standard', 'premium', 'catwalk', 'executive'].includes(clean)) return clean;
+  return 'standard';
+};
+
+const normalizeArray = (value: any) => {
+  if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value.split(',').map((v) => v.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeBoolean = (value: any) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const s = value.toLowerCase().trim();
+    return s === 'true' || s === 'on' || s === '1' || s === 'yes';
+  }
+  return Boolean(value);
+};
+
 export const createVendorSchema = Joi.object({
   refCode: Joi.string().trim().uppercase().optional(),
   businessName: Joi.string().trim().min(2).max(150).required(),
@@ -10,18 +40,25 @@ export const createVendorSchema = Joi.object({
   instagram: Joi.string().trim().allow('', null).optional().default(''),
   website: Joi.string().trim().allow('', null).default('N/A'),
   baseLocation: Joi.string().trim().allow('', null).default('London, Greater London'),
-  serviceAreas: Joi.array().items(Joi.string().trim()).default([]),
+  serviceAreas: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
   category: Joi.string().trim().min(2).max(100).required(),
-  marketsServed: Joi.array().items(Joi.string().trim()).default([]),
+  marketsServed: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
   weddingVolume: Joi.string().trim().allow('', null).default('Not specified'),
   typicalSpend: Joi.string().trim().allow('', null).default('Not specified'),
-  objectives: Joi.array().items(Joi.string().trim()).default([]),
-  discoveryChannels: Joi.array().items(Joi.string().trim()).default([]),
-  paymentTier: Joi.string()
-    .valid('standard', 'premium', 'catwalk', 'executive')
+  objectives: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
+  discoveryChannels: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
+  paymentTier: Joi.alternatives()
+    .try(Joi.string().allow('', null), Joi.any())
+    .custom(normalizePaymentTier)
     .default('standard'),
-  privacyAcknowledged: Joi.boolean().default(true),
-  marketingConsent: Joi.boolean().default(false),
+  privacyAcknowledged: Joi.alternatives()
+    .try(Joi.boolean(), Joi.string())
+    .custom(normalizeBoolean)
+    .default(true),
+  marketingConsent: Joi.alternatives()
+    .try(Joi.boolean(), Joi.string())
+    .custom(normalizeBoolean)
+    .default(false),
   notes: Joi.string().allow('', null).optional(),
   curatorNotes: Joi.string().allow('', null).optional(),
 });
