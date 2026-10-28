@@ -95,9 +95,24 @@ const attendeeSchema = new Schema<IAttendee>(
     },
     paymentStatus: {
       type: String,
-      enum: ['paid', 'pending', 'complimentary'],
-      default: 'paid',
+      enum: ['paid', 'pending', 'failed', 'complimentary'],
+      default: 'pending',
       index: true,
+    },
+    stripeSessionId: {
+      type: String,
+      trim: true,
+      index: true,
+      default: null,
+    },
+    stripePaymentIntentId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
     },
     privacyAcknowledged: {
       type: Boolean,

@@ -1,6 +1,6 @@
 import { Document, Types } from 'mongoose';
 
-export type PaymentStatus = 'paid' | 'pending' | 'complimentary';
+export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'complimentary';
 
 export interface IAttendee extends Document {
   _id: Types.ObjectId;
@@ -20,6 +20,9 @@ export interface IAttendee extends Document {
   ticketPrice: string;
   pricePaid: number;
   paymentStatus: PaymentStatus;
+  stripeSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: Date | null;
   privacyAcknowledged: boolean;
   marketingConsent: boolean;
   partnerConsent: boolean;
@@ -50,6 +53,9 @@ export interface CreateAttendeeInput {
   ticketPrice?: string;
   pricePaid?: number;
   paymentStatus?: PaymentStatus;
+  stripeSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: Date | null;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   partnerConsent?: boolean;

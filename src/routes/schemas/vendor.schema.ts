@@ -80,6 +80,7 @@ export const vendorQuerySchema = Joi.object({
   status: Joi.string().valid('pending', 'approved', 'rejected', 'waitlisted').optional(),
   category: Joi.string().trim().optional(),
   paymentTier: Joi.string().valid('standard', 'premium', 'catwalk', 'executive').optional(),
+  paymentStatus: Joi.string().valid('pending', 'paid', 'failed', 'exempt').optional(),
   search: Joi.string().trim().allow('').optional(),
   sortBy: Joi.string().trim().default('-createdAt'),
 });

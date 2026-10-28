@@ -109,6 +109,32 @@ const vendorSchema = new Schema<IVendor>(
       default: 'standard',
       index: true,
     },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'paid', 'failed', 'exempt'],
+      default: 'pending',
+      index: true,
+    },
+    pricePaid: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    stripeSessionId: {
+      type: String,
+      trim: true,
+      index: true,
+      default: null,
+    },
+    stripePaymentIntentId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
     privacyAcknowledged: {
       type: Boolean,
       default: true,

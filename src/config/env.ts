@@ -29,6 +29,11 @@ interface EnvConfig {
   bcryptRounds: number;
   allowedOrigins: string[];
   publicProfileBaseUrl: string;
+  stripeSecretKey: string;
+  stripePublishableKey: string;
+  stripeWebhookSecret: string;
+  stripeCurrency: string;
+  frontendUrl: string;
 }
 
 const env: EnvConfig = {
@@ -44,6 +49,11 @@ const env: EnvConfig = {
     .filter(Boolean),
   publicProfileBaseUrl:
     process.env.PUBLIC_PROFILE_BASE_URL || 'http://localhost:5000/api/v1/vendors/public',
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+  stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  stripeCurrency: (process.env.STRIPE_CURRENCY || 'gbp').toLowerCase(),
+  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, ''),
 };
 
 export default env;

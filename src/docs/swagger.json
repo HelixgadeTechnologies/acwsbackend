@@ -37,6 +37,14 @@
       "description": "Public exhibitor registration and unauthenticated profile cards"
     },
     {
+      "name": "Public Attendees",
+      "description": "Public ticket registration and payment initiation for attendees"
+    },
+    {
+      "name": "Payments",
+      "description": "Stripe checkout session verification and asynchronous webhook fulfillment"
+    },
+    {
       "name": "System",
       "description": "Server health status and root discovery"
     }
@@ -399,7 +407,9 @@
                         "vendor": { "$ref": "#/components/schemas/Vendor" },
                         "refCode": { "type": "string", "example": "ACWS-2027-VND-8X4K2" },
                         "qrCode": { "type": "string", "example": "data:image/png;base64,..." },
-                        "publicProfileUrl": { "type": "string" }
+                        "publicProfileUrl": { "type": "string" },
+                        "checkoutUrl": { "type": "string", "nullable": true, "example": "https://checkout.stripe.com/c/pay/cs_test_..." },
+                        "sessionId": { "type": "string", "nullable": true, "example": "cs_test_..." }
                       }
                     }
                   }
@@ -461,6 +471,125 @@
           "200": { "description": "HTML digital card" }
         }
       }
+    },
+    "/attendees": {
+      "post": {
+        "tags": ["Public Attendees"],
+        "summary": "Register as an ACWS 2027 Attendee & trigger Stripe payment",
+        "description": "Registers an attendee, calculates ticket price, and returns Stripe Checkout URL for full-page payment redirection.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAttendeeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attendee registration initiated or confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "attendee": { "$ref": "#/components/schemas/Attendee" },
+                        "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+                        "checkoutUrl": { "type": "string", "nullable": true, "example": "https://checkout.stripe.com/c/pay/cs_test_..." },
+                        "sessionId": { "type": "string", "nullable": true, "example": "cs_test_..." }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/verify-session/{sessionId}": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Verify checkout session status & registration details upon return navigation",
+        "description": "Called by frontend platform when navigating back from Stripe Checkout (success URL). Returns confirmed ticket pass or exhibitor profile.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "The Stripe Checkout Session ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment and registration status verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "type": { "type": "string", "enum": ["attendee", "vendor"], "example": "attendee" },
+                        "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+                        "paymentStatus": { "type": "string", "example": "paid" },
+                        "pricePaid": { "type": "number", "example": 20 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    },
+    "/payments/webhook": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Stripe Webhook fulfillment endpoint",
+        "description": "Receives asynchronous events directly from Stripe servers (e.g. checkout.session.completed). Cryptographically validated via Stripe-Signature header and raw buffer body.",
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook received and processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Signature validation failed"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -519,6 +648,11 @@
           "instagram": { "type": "string", "example": "@royalelegance_uk" },
           "baseLocation": { "type": "string", "example": "London, Greater London" },
           "paymentTier": { "type": "string", "enum": ["standard", "premium", "catwalk", "executive"], "example": "premium" },
+          "paymentStatus": { "type": "string", "enum": ["pending", "paid", "failed", "exempt"], "example": "paid" },
+          "pricePaid": { "type": "number", "example": 450 },
+          "stripeSessionId": { "type": "string", "nullable": true },
+          "stripePaymentIntentId": { "type": "string", "nullable": true },
+          "paidAt": { "type": "string", "format": "date-time", "nullable": true },
           "status": { "type": "string", "enum": ["pending", "approved", "waitlisted", "rejected"], "example": "pending" },
           "weddingVolume": { "type": "string", "example": "25-40/yr" },
           "typicalSpend": { "type": "string", "example": "£6,000+" },
@@ -590,12 +724,35 @@
           "phone": { "type": "string", "example": "+44 7111 222333" },
           "ticketType": { "type": "string", "enum": ["standard", "vip", "catwalk-exclusive"], "example": "vip" },
           "pricePaid": { "type": "number", "example": 45 },
-          "paymentStatus": { "type": "string", "enum": ["paid", "pending", "complimentary"], "example": "paid" },
+          "paymentStatus": { "type": "string", "enum": ["paid", "pending", "failed", "complimentary"], "example": "paid" },
+          "stripeSessionId": { "type": "string", "nullable": true },
+          "stripePaymentIntentId": { "type": "string", "nullable": true },
+          "paidAt": { "type": "string", "format": "date-time", "nullable": true },
           "weddingDate": { "type": "string", "example": "2027-08-15" },
           "fastTrackPass": { "type": "boolean", "example": true },
           "checkedIn": { "type": "boolean", "example": false },
           "checkedInAt": { "type": "string", "format": "date-time", "nullable": true },
           "registeredAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateAttendeeInput": {
+        "type": "object",
+        "required": ["fullName", "email", "attendeeType", "ticketType", "privacyAcknowledged"],
+        "properties": {
+          "fullName": { "type": "string", "example": "Amara Diallo" },
+          "email": { "type": "string", "format": "email", "example": "amara@example.com" },
+          "phone": { "type": "string", "example": "+44 7911 223344" },
+          "attendeeType": { "type": "string", "enum": ["Bride", "Groom", "Engaged Couple", "Partner/Fiancé(e)", "Family or Friend", "Wedding Professional", "Other"], "example": "Bride" },
+          "ticketType": { "type": "string", "example": "General Admission" },
+          "ticketPrice": { "type": "string", "example": "£20" },
+          "weddingLocation": { "type": "string", "example": "London" },
+          "weddingBudget": { "type": "string", "example": "£30,000 - £50,000" },
+          "guestCount": { "type": "string", "example": "150 - 250" },
+          "servicesNeeded": { "type": "array", "items": { "type": "string" }, "example": ["Photography", "Catering"] },
+          "culturalInfluences": { "type": "array", "items": { "type": "string" }, "example": ["Nigerian", "Jamaican"] },
+          "discoveryChannel": { "type": "string", "example": "Instagram" },
+          "privacyAcknowledged": { "type": "boolean", "example": true },
+          "marketingConsent": { "type": "boolean", "example": true }
         }
       },
       "BatchAttendeesInput": {

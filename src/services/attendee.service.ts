@@ -1,38 +1,59 @@
 import mongoose from 'mongoose';
 import Attendee, { generateAttendeeRefCode } from '../models/attendee.model';
 import ApiError from '../utils/ApiError';
+import { getAttendeeTicketPricing } from '../config/pricing';
+import * as stripeService from './stripe.service';
 import {
   AttendeeQueryFilters,
   CreateAttendeeInput,
   IAttendee,
 } from '../interfaces/attendee.interface';
 
+export interface AttendeeRegistrationResult {
+  attendee: IAttendee;
+  refCode: string;
+  checkoutUrl: string | null;
+  sessionId: string | null;
+}
+
 /**
- * Register a new attendee pass
+ * Register a new attendee pass and generate Stripe Checkout session if paid
  */
 export const registerAttendee = async (
   data: CreateAttendeeInput
-): Promise<IAttendee> => {
-  let price = 20;
-  let fastTrack = false;
-  const tType = (data.ticketType || '').toLowerCase();
-
-  if (tType.includes('vip')) {
-    price = 40;
-    fastTrack = true;
-  } else if (tType.includes('couple')) {
-    price = 35;
-  }
+): Promise<AttendeeRegistrationResult> => {
+  const pricing = getAttendeeTicketPricing(data.ticketType);
+  const isFree = pricing.amountInPence <= 0;
 
   const attendee = await Attendee.create({
     ...data,
     refCode: data.refCode ? data.refCode.toUpperCase().trim() : generateAttendeeRefCode(),
-    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : price,
-    fastTrackPass: fastTrack,
+    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
+    ticketPrice: data.ticketPrice || `£${pricing.priceInPounds}`,
+    fastTrackPass: pricing.fastTrackPass,
+    paymentStatus: isFree ? 'complimentary' : (data.paymentStatus || 'pending'),
     registeredAt: new Date(),
   });
 
-  return attendee;
+  let checkoutUrl: string | null = null;
+  let sessionId: string | null = null;
+
+  if (!isFree) {
+    const sessionResult = await stripeService.createAttendeeCheckoutSession(attendee);
+    if (sessionResult) {
+      checkoutUrl = sessionResult.checkoutUrl;
+      sessionId = sessionResult.sessionId;
+      attendee.stripeSessionId = sessionId;
+      await attendee.save();
+    }
+  }
+
+  return {
+    attendee,
+    refCode: attendee.refCode,
+    checkoutUrl,
+    sessionId,
+  };
 };
 
 /**

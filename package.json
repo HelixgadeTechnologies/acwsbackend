@@ -11,6 +11,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test:stripe": "ts-node --files src/scripts/testStripeFlow.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
     "backfill:qrcodes": "ts-node src/scripts/generateMissingQRCodes.ts"
   },
@@ -47,6 +48,7 @@
     "mongoose": "^8.24.7",
     "morgan": "^1.10.0",
     "qrcode": "^1.5.4",
+    "stripe": "^23.0.1",
     "swagger-ui-express": "^5.0.1",
     "typescript": "^5.4.5",
     "winston": "^3.13.0"

@@ -63,7 +63,7 @@ export const batchAttendeesSchema = Joi.object({
         partnerName: Joi.string().trim().allow('', null).optional(),
         ticketType: Joi.string().default('General Admission'),
         pricePaid: Joi.number().min(0).optional().default(0),
-        paymentStatus: Joi.string().valid('paid', 'pending', 'complimentary').default('paid'),
+        paymentStatus: Joi.string().valid('paid', 'pending', 'failed', 'complimentary').default('paid'),
         weddingDate: Joi.string().allow('', null).optional(),
         fastTrackPass: Joi.boolean().default(false),
         checkedIn: Joi.boolean().default(false),

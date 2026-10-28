@@ -3,6 +3,8 @@ import Vendor, { generateRefCode } from '../models/vendor.model';
 import ApiError from '../utils/ApiError';
 import env from '../config/env';
 import { generateQRCodeDataUrl } from './qrcode.service';
+import { getVendorTierPricing } from '../config/pricing';
+import * as stripeService from './stripe.service';
 import {
   CreateVendorInput,
   IVendor,
@@ -10,6 +12,15 @@ import {
   VendorQueryFilters,
   VendorStatus,
 } from '../interfaces/vendor.interface';
+
+export interface VendorRegistrationResult {
+  vendor: IVendor;
+  refCode: string;
+  qrCode?: string;
+  publicProfileUrl?: string;
+  checkoutUrl: string | null;
+  sessionId: string | null;
+}
 
 /**
  * Builds the public profile destination URL for a given reference code.
@@ -23,9 +34,11 @@ export const buildPublicProfileUrl = (refCode: string): string => {
 };
 
 /**
- * Register a new vendor submission and automatically generate QR code.
+ * Register a new vendor submission and automatically generate QR code and Stripe checkout session.
  */
-export const registerVendor = async (data: CreateVendorInput): Promise<IVendor> => {
+export const registerVendor = async (
+  data: CreateVendorInput
+): Promise<VendorRegistrationResult> => {
   // Check if vendor already exists with the same email
   const existingVendor = await Vendor.findOne({ email: data.email.toLowerCase().trim() });
   if (existingVendor) {
@@ -38,15 +51,39 @@ export const registerVendor = async (data: CreateVendorInput): Promise<IVendor> 
   const refCode = data.refCode ? data.refCode.toUpperCase().trim() : generateRefCode();
   const publicProfileUrl = buildPublicProfileUrl(refCode);
   const qrCode = await generateQRCodeDataUrl(publicProfileUrl);
+  const pricing = getVendorTierPricing(data.paymentTier);
 
   const vendor = await Vendor.create({
     ...data,
     refCode,
+    status: 'pending',
+    paymentStatus: data.paymentStatus || 'pending',
+    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
     publicProfileUrl,
     qrCode,
   });
 
-  return vendor;
+  let checkoutUrl: string | null = null;
+  let sessionId: string | null = null;
+
+  if (pricing.amountInPence > 0) {
+    const sessionResult = await stripeService.createVendorCheckoutSession(vendor);
+    if (sessionResult) {
+      checkoutUrl = sessionResult.checkoutUrl;
+      sessionId = sessionResult.sessionId;
+      vendor.stripeSessionId = sessionId;
+      await vendor.save();
+    }
+  }
+
+  return {
+    vendor,
+    refCode: vendor.refCode,
+    qrCode: vendor.qrCode,
+    publicProfileUrl: vendor.publicProfileUrl,
+    checkoutUrl,
+    sessionId,
+  };
 };
 
 /**
@@ -368,6 +405,10 @@ export const getAdminVendors = async (
 
   if (query.paymentTier) {
     filter.paymentTier = query.paymentTier;
+  }
+
+  if (query.paymentStatus) {
+    filter.paymentStatus = query.paymentStatus;
   }
 
   if (query.search && query.search.trim() !== '') {

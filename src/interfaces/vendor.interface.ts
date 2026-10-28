@@ -2,6 +2,7 @@ import { Document, Types } from 'mongoose';
 
 export type VendorStatus = 'pending' | 'approved' | 'rejected' | 'waitlisted';
 export type PaymentTier = 'standard' | 'premium' | 'catwalk' | 'executive';
+export type VendorPaymentStatus = 'pending' | 'paid' | 'failed' | 'exempt';
 
 export interface IVendor extends Document {
   _id: Types.ObjectId;
@@ -23,6 +24,11 @@ export interface IVendor extends Document {
   objectives: string[];
   discoveryChannels: string[];
   paymentTier: PaymentTier;
+  paymentStatus: VendorPaymentStatus;
+  pricePaid: number;
+  stripeSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: Date | null;
   privacyAcknowledged: boolean;
   marketingConsent: boolean;
   notes?: string;
@@ -64,6 +70,11 @@ export interface CreateVendorInput {
   objectives?: string[];
   discoveryChannels?: string[];
   paymentTier?: PaymentTier;
+  paymentStatus?: VendorPaymentStatus;
+  pricePaid?: number;
+  stripeSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: Date | null;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   notes?: string;
@@ -77,6 +88,7 @@ export interface VendorQueryFilters {
   status?: VendorStatus;
   category?: string;
   paymentTier?: PaymentTier;
+  paymentStatus?: VendorPaymentStatus;
   sortBy?: string;
 }
 

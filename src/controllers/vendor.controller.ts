@@ -8,18 +8,24 @@ import ApiResponse from '../utils/ApiResponse';
  * Public registration endpoint for exhibitors/vendors
  */
 export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const vendor = await vendorService.registerVendor(req.body);
+  const result = await vendorService.registerVendor(req.body);
+
+  const message = result.checkoutUrl
+    ? `Exhibitor registration initiated. Please complete payment to confirm exhibition stand (Ref: ${result.refCode})`
+    : `Exhibitor registration submitted successfully. Your reference code is ${result.refCode}`;
 
   res.status(201).json(
     new ApiResponse(
       201,
       {
-        vendor,
-        refCode: vendor.refCode,
-        qrCode: vendor.qrCode,
-        publicProfileUrl: vendor.publicProfileUrl,
+        vendor: result.vendor,
+        refCode: result.refCode,
+        qrCode: result.qrCode,
+        publicProfileUrl: result.publicProfileUrl,
+        checkoutUrl: result.checkoutUrl,
+        sessionId: result.sessionId,
       },
-      'Exhibitor registration submitted successfully. Your reference code is ' + vendor.refCode
+      message
     )
   );
 });

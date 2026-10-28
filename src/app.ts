@@ -10,6 +10,7 @@ import swaggerDocument from './docs/swagger.json';
 import { limiter } from './middlewares/rateLimiter';
 import routes from './routes/index';
 import errorMiddleware from './middlewares/error.middleware';
+import * as paymentController from './controllers/payment.controller';
 import logger from './utils/logger';
 
 const app: Application = express();
@@ -57,6 +58,13 @@ app.get('/api-docs.json', (_req: Request, res: Response) => {
 
 // ── Rate limiting ─────────────────────────────────────────────────────────
 app.use(limiter);
+
+// ── Stripe Webhook (Raw Buffer parser required before express.json) ────────
+app.post(
+  '/api/v1/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  paymentController.handleWebhook
+);
 
 // ── Body parsing ──────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
