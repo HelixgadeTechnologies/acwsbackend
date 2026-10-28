@@ -18,7 +18,7 @@ export const registerAttendee = async (
   const tType = (data.ticketType || '').toLowerCase();
 
   if (tType.includes('vip')) {
-    price = 55;
+    price = 40;
     fastTrack = true;
   } else if (tType.includes('couple')) {
     price = 35;
