@@ -7,6 +7,7 @@ import adminRoutes from './admin.routes';
 import adminVendorRoutes from './admin.vendor.routes';
 import adminAttendeeRoutes from './admin.attendee.routes';
 import paymentRoutes from './payment.routes';
+import scanRoutes from './scan.routes';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use('/items', itemRoutes);
 router.use('/vendors', vendorRoutes);
 router.use('/attendees', attendeeRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/scan', scanRoutes);
 router.use('/admin', adminRoutes);
 router.use('/admin/vendors', adminVendorRoutes);
 router.use('/admin/attendees', adminAttendeeRoutes);

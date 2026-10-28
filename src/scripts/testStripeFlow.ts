@@ -113,6 +113,26 @@ async function runTests() {
   assert(hasRawWebhook, 'Raw webhook endpoint should be registered on Express app');
   console.log('✓ Webhook route registered with raw body parsing on Express app.');
 
+  // Test 6: Attendee Public Pass HTML Generation
+  console.log('Testing Attendee Pass HTML Generation...');
+  const { renderAttendeePassHtml } = require('../services/attendee.service');
+  const samplePass = renderAttendeePassHtml({
+    refCode: 'ACWS-2027-ATT-TEST',
+    fullName: 'Amara Diallo',
+    ticketType: 'VIP Pass',
+    ticketPrice: '£40',
+    paymentStatus: 'paid',
+    fastTrackPass: true,
+    checkedIn: false,
+    registeredAt: new Date(),
+    qrCode: 'data:image/png;base64,mock',
+  });
+  assert(samplePass.includes('Amara Diallo'));
+  assert(samplePass.includes('ACWS-2027-ATT-TEST'));
+  assert(samplePass.includes('VIP Pass'));
+  assert(samplePass.includes('Fast Track Access'));
+  console.log('✓ Attendee Pass HTML renders with attendee name, VIP badge, and fast track pass.');
+
   console.log('--- ALL STRIPE INTEGRATION TESTS PASSED ---');
 }
 

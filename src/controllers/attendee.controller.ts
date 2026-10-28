@@ -20,6 +20,8 @@ export const register = asyncHandler(async (req: Request, res: Response): Promis
       {
         attendee: result.attendee,
         refCode: result.refCode,
+        qrCode: result.qrCode,
+        publicPassUrl: result.publicPassUrl,
         checkoutUrl: result.checkoutUrl,
         sessionId: result.sessionId,
       },
@@ -27,3 +29,29 @@ export const register = asyncHandler(async (req: Request, res: Response): Promis
     )
   );
 });
+
+/**
+ * GET /api/v1/attendees/public/:refCode
+ * Public unauthenticated JSON endpoint returning attendee ticket pass info
+ */
+export const getPublicProfile = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const profile = await attendeeService.getPublicAttendeeProfile(req.params.refCode);
+    res
+      .status(200)
+      .json(new ApiResponse(200, profile, 'Attendee pass details retrieved successfully'));
+  }
+);
+
+/**
+ * GET /api/v1/attendees/public/:refCode/pass
+ * Public unauthenticated responsive HTML Digital Admission Pass
+ */
+export const getAttendeePass = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const profile = await attendeeService.getPublicAttendeeProfile(req.params.refCode);
+    const html = attendeeService.renderAttendeePassHtml(profile);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+  }
+);

@@ -31,9 +31,25 @@ export interface IAttendee extends Document {
   fastTrackPass: boolean;
   checkedIn: boolean;
   checkedInAt?: Date | null;
+  qrCode?: string;
+  publicPassUrl?: string;
   registeredAt: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PublicAttendeeProfile {
+  refCode: string;
+  fullName: string;
+  ticketType: string;
+  ticketPrice: string;
+  paymentStatus: PaymentStatus;
+  fastTrackPass: boolean;
+  checkedIn: boolean;
+  checkedInAt?: Date | null;
+  qrCode?: string;
+  publicPassUrl?: string;
+  registeredAt: Date;
 }
 
 export interface CreateAttendeeInput {
@@ -56,6 +72,8 @@ export interface CreateAttendeeInput {
   stripeSessionId?: string | null;
   stripePaymentIntentId?: string | null;
   paidAt?: Date | null;
+  qrCode?: string;
+  publicPassUrl?: string;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   partnerConsent?: boolean;

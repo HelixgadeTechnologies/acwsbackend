@@ -502,6 +502,8 @@
                       "properties": {
                         "attendee": { "$ref": "#/components/schemas/Attendee" },
                         "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+                        "qrCode": { "type": "string", "example": "data:image/png;base64,..." },
+                        "publicPassUrl": { "type": "string", "example": "http://localhost:5000/api/v1/attendees/public/ACWS-2027-ATT-48F2/pass" },
                         "checkoutUrl": { "type": "string", "nullable": true, "example": "https://checkout.stripe.com/c/pay/cs_test_..." },
                         "sessionId": { "type": "string", "nullable": true, "example": "cs_test_..." }
                       }
@@ -511,6 +513,72 @@
               }
             }
           }
+        }
+      }
+    },
+    "/attendees/public/{refCode}": {
+      "get": {
+        "tags": ["Public Attendees"],
+        "summary": "Get public attendee admission details by RefCode",
+        "description": "Unauthenticated JSON endpoint returning ticket type, payment status, fast track status, and check-in validation.",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public attendee pass data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+                        "fullName": { "type": "string", "example": "Amara Diallo" },
+                        "ticketType": { "type": "string", "example": "VIP Pass" },
+                        "ticketPrice": { "type": "string", "example": "£40" },
+                        "paymentStatus": { "type": "string", "example": "paid" },
+                        "fastTrackPass": { "type": "boolean", "example": true },
+                        "checkedIn": { "type": "boolean", "example": false },
+                        "qrCode": { "type": "string" },
+                        "publicPassUrl": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Attendee not found" }
+        }
+      }
+    },
+    "/attendees/public/{refCode}/pass": {
+      "get": {
+        "tags": ["Public Attendees"],
+        "summary": "Direct HTML Mobile Admission Ticket Pass",
+        "description": "Direct unauthenticated HTML page rendered when scanning the attendee's QR code on smartphones.",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "HTML mobile admission pass" }
+        }
+      }
+    },
+    "/scan/{refCode}": {
+      "get": {
+        "tags": ["Public Attendees", "Public Vendors"],
+        "summary": "Universal unauthenticated QR code scan endpoint",
+        "description": "Automatically detects whether the scanned reference code belongs to an Attendee pass or a Vendor exhibitor card and renders HTML for browsers or JSON for API clients.",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Pass HTML or profile JSON" }
         }
       }
     },

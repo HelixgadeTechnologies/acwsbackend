@@ -149,6 +149,14 @@ const attendeeSchema = new Schema<IAttendee>(
       type: Date,
       default: null,
     },
+    qrCode: {
+      type: String,
+      default: '',
+    },
+    publicPassUrl: {
+      type: String,
+      default: '',
+    },
     registeredAt: {
       type: Date,
       default: Date.now,
