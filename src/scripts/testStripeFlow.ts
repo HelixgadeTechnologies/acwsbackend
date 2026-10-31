@@ -133,6 +133,36 @@ async function runTests() {
   assert(samplePass.includes('Fast Track Access'));
   console.log('✓ Attendee Pass HTML renders with attendee name, VIP badge, and fast track pass.');
 
+  // Test 7: Device Info Extraction
+  console.log('Testing Device Info Extraction...');
+  const { extractDeviceInfo } = require('../utils/device.util');
+  const mockMobileReq: any = {
+    headers: {
+      'user-agent':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      'x-forwarded-for': '198.51.100.42, 10.0.0.1',
+    },
+  };
+  const mobileDevice = extractDeviceInfo(mockMobileReq);
+  assert.strictEqual(mobileDevice.ip, '198.51.100.42');
+  assert.strictEqual(mobileDevice.deviceType, 'mobile');
+  assert.strictEqual(mobileDevice.os, 'iOS');
+  assert.strictEqual(mobileDevice.browser, 'Safari');
+
+  const mockDesktopReq: any = {
+    headers: {
+      'user-agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+    ip: '203.0.113.19',
+  };
+  const desktopDevice = extractDeviceInfo(mockDesktopReq);
+  assert.strictEqual(desktopDevice.ip, '203.0.113.19');
+  assert.strictEqual(desktopDevice.deviceType, 'desktop');
+  assert.strictEqual(desktopDevice.os, 'Windows 10/11');
+  assert.strictEqual(desktopDevice.browser, 'Chrome');
+  console.log('✓ Device info extraction correctly parses IP, mobile/desktop, OS, and browser.');
+
   console.log('--- ALL STRIPE INTEGRATION TESTS PASSED ---');
 }
 

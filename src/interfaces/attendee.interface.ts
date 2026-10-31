@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { IDeviceInfo } from './device.interface';
 
 export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'complimentary';
 
@@ -33,6 +34,10 @@ export interface IAttendee extends Document {
   checkedInAt?: Date | null;
   qrCode?: string;
   publicPassUrl?: string;
+  registrationDevice?: IDeviceInfo | null;
+  checkInDevice?: IDeviceInfo | null;
+  lastScannedDevice?: IDeviceInfo | null;
+  scanCount: number;
   registeredAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -74,6 +79,8 @@ export interface CreateAttendeeInput {
   paidAt?: Date | null;
   qrCode?: string;
   publicPassUrl?: string;
+  registrationDevice?: IDeviceInfo | null;
+  checkInDevice?: IDeviceInfo | null;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   partnerConsent?: boolean;

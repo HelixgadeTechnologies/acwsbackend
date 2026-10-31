@@ -15,6 +15,9 @@ import logger from './utils/logger';
 
 const app: Application = express();
 
+// Trust reverse proxies (Render, Vercel, Nginx, Cloudflare) for accurate client IP tracking
+app.set('trust proxy', 1);
+
 // ── Security headers ───────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 

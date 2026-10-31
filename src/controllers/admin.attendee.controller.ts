@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import * as attendeeService from '../services/attendee.service';
 import asyncHandler from '../utils/asyncHandler';
 import ApiResponse from '../utils/ApiResponse';
+import { extractDeviceInfo } from '../utils/device.util';
 
 /**
  * GET /api/v1/admin/attendees
@@ -19,7 +20,12 @@ export const getAttendees = asyncHandler(async (req: Request, res: Response): Pr
 export const checkinAttendee = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const explicitStatus = req.body.checkedIn;
-    const attendee = await attendeeService.checkinAttendee(req.params.id, explicitStatus);
+    const deviceInfo = extractDeviceInfo(req);
+    const attendee = await attendeeService.checkinAttendee(
+      req.params.id,
+      explicitStatus,
+      deviceInfo
+    );
     res
       .status(200)
       .json(

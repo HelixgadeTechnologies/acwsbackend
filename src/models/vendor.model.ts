@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { IVendor } from '../interfaces/vendor.interface';
+import { deviceInfoSchema } from './deviceInfo.schema';
 
 export const generateRefCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -160,6 +161,19 @@ const vendorSchema = new Schema<IVendor>(
     publicProfileUrl: {
       type: String,
       default: '',
+    },
+    registrationDevice: {
+      type: deviceInfoSchema,
+      default: null,
+    },
+    lastScannedDevice: {
+      type: deviceInfoSchema,
+      default: null,
+    },
+    scanCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   {

@@ -5,6 +5,7 @@ import env from '../config/env';
 import { getAttendeeTicketPricing } from '../config/pricing';
 import { generateQRCodeDataUrl } from './qrcode.service';
 import * as stripeService from './stripe.service';
+import { IDeviceInfo } from '../interfaces/device.interface';
 import {
   AttendeeQueryFilters,
   CreateAttendeeInput,
@@ -467,7 +468,8 @@ export const getAdminAttendees = async (
  */
 export const checkinAttendee = async (
   idOrRef: string,
-  explicitStatus?: boolean
+  explicitStatus?: boolean,
+  checkInDevice?: IDeviceInfo
 ): Promise<IAttendee> => {
   const clean = idOrRef.trim();
   let attendee: IAttendee | null = null;
@@ -491,6 +493,11 @@ export const checkinAttendee = async (
   }
 
   attendee.checkedInAt = attendee.checkedIn ? new Date() : null;
+  if (attendee.checkedIn && checkInDevice) {
+    attendee.checkInDevice = checkInDevice;
+  } else if (!attendee.checkedIn) {
+    attendee.checkInDevice = null;
+  }
   await attendee.save();
 
   return attendee;

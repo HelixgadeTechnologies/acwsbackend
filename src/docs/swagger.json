@@ -582,6 +582,51 @@
         }
       }
     },
+    "/scan/{refCode}/logs": {
+      "get": {
+        "tags": ["Public Attendees", "Public Vendors"],
+        "summary": "Get scan device history & analytics for a pass or exhibitor booth",
+        "description": "Returns audit list of recent device scans including IP, OS, browser, device form factor, and timestamps.",
+        "parameters": [
+          { "name": "refCode", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan audit history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "refCode": { "type": "string", "example": "ACWS-2027-ATT-48F2" },
+                        "totalReturned": { "type": "integer", "example": 5 },
+                        "scans": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "refCode": { "type": "string" },
+                              "targetType": { "type": "string", "enum": ["attendee", "vendor"] },
+                              "deviceInfo": { "$ref": "#/components/schemas/DeviceInfo" },
+                              "scannedAt": { "type": "string", "format": "date-time" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/payments/verify-session/{sessionId}": {
       "get": {
         "tags": ["Payments"],
@@ -730,6 +775,9 @@
           "curatorNotes": { "type": "string", "example": "Curator approved for premium booth" },
           "qrCode": { "type": "string", "example": "data:image/png;base64,..." },
           "publicProfileUrl": { "type": "string" },
+          "registrationDevice": { "$ref": "#/components/schemas/DeviceInfo" },
+          "lastScannedDevice": { "$ref": "#/components/schemas/DeviceInfo" },
+          "scanCount": { "type": "integer", "example": 14 },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }
@@ -800,6 +848,10 @@
           "fastTrackPass": { "type": "boolean", "example": true },
           "checkedIn": { "type": "boolean", "example": false },
           "checkedInAt": { "type": "string", "format": "date-time", "nullable": true },
+          "registrationDevice": { "$ref": "#/components/schemas/DeviceInfo" },
+          "checkInDevice": { "$ref": "#/components/schemas/DeviceInfo" },
+          "lastScannedDevice": { "$ref": "#/components/schemas/DeviceInfo" },
+          "scanCount": { "type": "integer", "example": 2 },
           "registeredAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -842,6 +894,17 @@
               }
             }
           }
+        }
+      },
+      "DeviceInfo": {
+        "type": "object",
+        "properties": {
+          "ip": { "type": "string", "example": "192.168.1.100" },
+          "userAgent": { "type": "string", "example": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)..." },
+          "deviceType": { "type": "string", "enum": ["mobile", "tablet", "desktop", "unknown"], "example": "mobile" },
+          "os": { "type": "string", "example": "iOS" },
+          "browser": { "type": "string", "example": "Safari" },
+          "capturedAt": { "type": "string", "format": "date-time" }
         }
       }
     }

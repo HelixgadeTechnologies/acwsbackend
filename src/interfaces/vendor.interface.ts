@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { IDeviceInfo } from './device.interface';
 
 export type VendorStatus = 'pending' | 'approved' | 'rejected' | 'waitlisted';
 export type PaymentTier = 'standard' | 'premium' | 'catwalk' | 'executive';
@@ -35,6 +36,9 @@ export interface IVendor extends Document {
   curatorNotes?: string;
   qrCode?: string;
   publicProfileUrl?: string;
+  registrationDevice?: IDeviceInfo | null;
+  lastScannedDevice?: IDeviceInfo | null;
+  scanCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,6 +79,7 @@ export interface CreateVendorInput {
   stripeSessionId?: string | null;
   stripePaymentIntentId?: string | null;
   paidAt?: Date | null;
+  registrationDevice?: IDeviceInfo | null;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   notes?: string;

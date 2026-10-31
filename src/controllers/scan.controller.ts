@@ -4,6 +4,8 @@ import * as vendorService from '../services/vendor.service';
 import asyncHandler from '../utils/asyncHandler';
 import ApiResponse from '../utils/ApiResponse';
 import ApiError from '../utils/ApiError';
+import { extractDeviceInfo } from '../utils/device.util';
+import { recordScanEvent } from '../services/scanLog.service';
 
 /**
  * GET /api/v1/scan/:refCode
@@ -16,6 +18,10 @@ export const scanRefCode = asyncHandler(async (req: Request, res: Response): Pro
   if (!refCode) {
     throw new ApiError(400, 'Reference code is required');
   }
+
+  // Record scan audit and update last device in the background
+  const deviceInfo = extractDeviceInfo(req);
+  recordScanEvent(refCode, deviceInfo).catch(() => {});
 
   const acceptsHtml = req.accepts(['html', 'json']) === 'html';
   const isAttendeeCode = refCode.includes('ATT');
@@ -64,4 +70,26 @@ export const scanRefCode = asyncHandler(async (req: Request, res: Response): Pro
     )
   );
 });
+
+/**
+ * GET /api/v1/scan/:refCode/logs
+ * Retrieve scan device history and metrics for an attendee pass or vendor booth
+ */
+export const getScanHistory = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const refCode = (req.params.refCode || '').toUpperCase().trim();
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const { getScanLogsForRef } = await import('../services/scanLog.service');
+    const logs = await getScanLogsForRef(refCode, limit);
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { refCode, totalReturned: logs.length, scans: logs },
+          'Scan device history retrieved successfully'
+        )
+      );
+  }
+);
 

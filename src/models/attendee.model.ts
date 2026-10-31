@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { IAttendee } from '../interfaces/attendee.interface';
+import { deviceInfoSchema } from './deviceInfo.schema';
 
 export const generateAttendeeRefCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -156,6 +157,23 @@ const attendeeSchema = new Schema<IAttendee>(
     publicPassUrl: {
       type: String,
       default: '',
+    },
+    registrationDevice: {
+      type: deviceInfoSchema,
+      default: null,
+    },
+    checkInDevice: {
+      type: deviceInfoSchema,
+      default: null,
+    },
+    lastScannedDevice: {
+      type: deviceInfoSchema,
+      default: null,
+    },
+    scanCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     registeredAt: {
       type: Date,
