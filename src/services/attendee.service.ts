@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Attendee, { generateAttendeeRefCode } from '../models/attendee.model';
+import PendingRegistration from '../models/pendingRegistration.model';
 import ApiError from '../utils/ApiError';
 import env from '../config/env';
 import { getAttendeeTicketPricing } from '../config/pricing';
@@ -14,7 +15,7 @@ import {
 } from '../interfaces/attendee.interface';
 
 export interface AttendeeRegistrationResult {
-  attendee: IAttendee;
+  attendee: IAttendee | null;
   refCode: string;
   qrCode?: string;
   publicPassUrl?: string;
@@ -31,7 +32,9 @@ export const buildPublicPassUrl = (refCode: string): string => {
 };
 
 /**
- * Register a new attendee pass, generate QR code, and initiate Stripe Checkout session if paid
+ * Register a new attendee pass.
+ * NOTE: If paid, the record is NOT stored in Attendee collection until Stripe payment completes.
+ * Instead, it is staged in PendingRegistration with a 24-hour TTL.
  */
 export const registerAttendee = async (
   data: CreateAttendeeInput
@@ -40,42 +43,140 @@ export const registerAttendee = async (
   const isFree = pricing.amountInPence <= 0;
 
   const refCode = data.refCode ? data.refCode.toUpperCase().trim() : generateAttendeeRefCode();
-  const publicPassUrl = buildPublicPassUrl(refCode);
-  const qrCode = await generateQRCodeDataUrl(publicPassUrl);
 
-  const attendee = await Attendee.create({
-    ...data,
+  // If complimentary / free ticket: save immediately to database
+  if (isFree) {
+    const publicPassUrl = buildPublicPassUrl(refCode);
+    const qrCode = await generateQRCodeDataUrl(publicPassUrl);
+
+    const attendee = await Attendee.create({
+      ...data,
+      refCode,
+      pricePaid: 0,
+      ticketPrice: data.ticketPrice || '£0',
+      fastTrackPass: pricing.fastTrackPass,
+      paymentStatus: 'complimentary',
+      publicPassUrl,
+      qrCode,
+      registeredAt: new Date(),
+    });
+
+    return {
+      attendee,
+      refCode: attendee.refCode,
+      qrCode: attendee.qrCode,
+      publicPassUrl: attendee.publicPassUrl,
+      checkoutUrl: null,
+      sessionId: null,
+    };
+  }
+
+  // If paid: stage in PendingRegistration (NOT in Attendee collection)
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const pending = await PendingRegistration.create({
     refCode,
-    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
-    ticketPrice: data.ticketPrice || `£${pricing.priceInPounds}`,
-    fastTrackPass: pricing.fastTrackPass,
-    paymentStatus: isFree ? 'complimentary' : (data.paymentStatus || 'pending'),
-    publicPassUrl,
-    qrCode,
-    registeredAt: new Date(),
+    type: 'attendee',
+    data: {
+      ...data,
+      refCode,
+      pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
+      ticketPrice: data.ticketPrice || `£${pricing.priceInPounds}`,
+      fastTrackPass: pricing.fastTrackPass,
+    },
+    deviceInfo: data.registrationDevice || null,
+    expiresAt,
   });
 
-  let checkoutUrl: string | null = null;
-  let sessionId: string | null = null;
+  const sessionResult = await stripeService.createAttendeeCheckoutSession({
+    email: data.email,
+    fullName: data.fullName,
+    refCode,
+    ticketType: data.ticketType || 'General Admission',
+    pendingId: pending._id.toString(),
+  });
 
-  if (!isFree) {
-    const sessionResult = await stripeService.createAttendeeCheckoutSession(attendee);
-    if (sessionResult) {
-      checkoutUrl = sessionResult.checkoutUrl;
-      sessionId = sessionResult.sessionId;
-      attendee.stripeSessionId = sessionId;
-      await attendee.save();
-    }
+  if (sessionResult) {
+    pending.sessionId = sessionResult.sessionId;
+    await pending.save();
   }
 
   return {
-    attendee,
-    refCode: attendee.refCode,
-    qrCode: attendee.qrCode,
-    publicPassUrl: attendee.publicPassUrl,
-    checkoutUrl,
-    sessionId,
+    attendee: null,
+    refCode,
+    checkoutUrl: sessionResult?.checkoutUrl || null,
+    sessionId: sessionResult?.sessionId || null,
   };
+};
+
+/**
+ * Finalizes attendee registration AFTER Stripe payment is confirmed.
+ * Inserts the record into the permanent Attendee collection and generates QR pass.
+ */
+export const finalizeAttendeeRegistration = async (
+  sessionId: string,
+  paymentIntentId?: string | null,
+  amountPaid?: number,
+  fallbackRefCode?: string
+): Promise<IAttendee | null> => {
+  // 1. Idempotency check: see if Attendee record already exists
+  let attendee = await Attendee.findOne({
+    $or: [
+      { stripeSessionId: sessionId },
+      ...(paymentIntentId ? [{ stripePaymentIntentId: paymentIntentId }] : []),
+      ...(fallbackRefCode ? [{ refCode: fallbackRefCode }] : []),
+    ],
+  });
+
+  if (attendee) {
+    if (attendee.paymentStatus !== 'paid') {
+      attendee.paymentStatus = 'paid';
+      attendee.paidAt = new Date();
+      if (paymentIntentId) attendee.stripePaymentIntentId = paymentIntentId;
+      if (amountPaid) attendee.pricePaid = amountPaid;
+      await attendee.save();
+    }
+    return attendee;
+  }
+
+  // 2. Find staged PendingRegistration
+  const pending = await PendingRegistration.findOne({
+    $or: [
+      { sessionId },
+      ...(fallbackRefCode ? [{ refCode: fallbackRefCode }] : []),
+    ],
+    type: 'attendee',
+  });
+
+  if (!pending) {
+    return null;
+  }
+
+  const rawData = pending.data || {};
+  const refCode = pending.refCode;
+  const publicPassUrl = buildPublicPassUrl(refCode);
+  const qrCode = await generateQRCodeDataUrl(publicPassUrl);
+  const pricing = getAttendeeTicketPricing(rawData.ticketType);
+
+  attendee = await Attendee.create({
+    ...rawData,
+    refCode,
+    pricePaid: typeof amountPaid === 'number' ? amountPaid : (rawData.pricePaid || pricing.priceInPounds),
+    ticketPrice: rawData.ticketPrice || `£${pricing.priceInPounds}`,
+    fastTrackPass: rawData.fastTrackPass ?? pricing.fastTrackPass,
+    paymentStatus: 'paid',
+    stripeSessionId: sessionId,
+    stripePaymentIntentId: paymentIntentId || null,
+    paidAt: new Date(),
+    publicPassUrl,
+    qrCode,
+    registrationDevice: pending.deviceInfo || rawData.registrationDevice || null,
+    registeredAt: new Date(),
+  });
+
+  // Clean up pending staging record
+  await PendingRegistration.deleteOne({ _id: pending._id });
+
+  return attendee;
 };
 
 /**

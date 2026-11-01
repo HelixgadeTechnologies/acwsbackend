@@ -163,6 +163,16 @@ async function runTests() {
   assert.strictEqual(desktopDevice.browser, 'Chrome');
   console.log('✓ Device info extraction correctly parses IP, mobile/desktop, OS, and browser.');
 
+  // Test 8: Deferred Storage (Store Only After Payment Confirmation)
+  console.log('Testing Deferred Storage Architecture...');
+  const PendingRegistration = require('../models/pendingRegistration.model').default;
+  assert(PendingRegistration !== undefined, 'PendingRegistration model must exist');
+  const attendeeService = require('../services/attendee.service');
+  assert(typeof attendeeService.finalizeAttendeeRegistration === 'function', 'finalizeAttendeeRegistration must exist');
+  const vendorService = require('../services/vendor.service');
+  assert(typeof vendorService.finalizeVendorRegistration === 'function', 'finalizeVendorRegistration must exist');
+  console.log('✓ Deferred storage service functions and staging collection verified.');
+
   console.log('--- ALL STRIPE INTEGRATION TESTS PASSED ---');
 }
 

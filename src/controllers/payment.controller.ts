@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import * as stripeService from '../services/stripe.service';
+import * as attendeeService from '../services/attendee.service';
+import * as vendorService from '../services/vendor.service';
 import Attendee from '../models/attendee.model';
 import Vendor from '../models/vendor.model';
+import { IAttendee } from '../interfaces/attendee.interface';
+import { IVendor } from '../interfaces/vendor.interface';
+import PendingRegistration from '../models/pendingRegistration.model';
 import asyncHandler from '../utils/asyncHandler';
 import ApiResponse from '../utils/ApiResponse';
 import ApiError from '../utils/ApiError';
@@ -10,7 +15,8 @@ import logger from '../utils/logger';
 
 /**
  * POST /api/v1/payments/webhook
- * Stripe Webhook Handler for asynchronous fulfillment
+ * Stripe Webhook Handler for asynchronous payment fulfillment.
+ * NOTE: Records are inserted into the permanent database ONLY upon successful payment.
  */
 export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   const sig = req.headers['stripe-signature'];
@@ -36,47 +42,37 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         typeof session.payment_intent === 'string'
           ? session.payment_intent
           : (session.payment_intent as any)?.id || null;
+      const amountPaid = session.amount_total ? session.amount_total / 100 : undefined;
 
-      if (regType === 'attendee' && refCode) {
-        const attendee = await Attendee.findOne({ refCode });
+      if (regType === 'attendee') {
+        const attendee = await attendeeService.finalizeAttendeeRegistration(
+          session.id,
+          paymentIntentId,
+          amountPaid,
+          refCode
+        );
+
         if (attendee) {
-          if (attendee.paymentStatus !== 'paid') {
-            attendee.paymentStatus = 'paid';
-            attendee.stripePaymentIntentId = paymentIntentId;
-            attendee.paidAt = new Date();
-            if (session.amount_total) {
-              attendee.pricePaid = session.amount_total / 100;
-            }
-            await attendee.save();
-            logger.info(
-              `Payment confirmed for Attendee ${attendee.fullName} (${attendee.refCode})`
-            );
-          } else {
-            logger.info(`Attendee ${attendee.refCode} already marked as paid.`);
-          }
+          logger.info(
+            `Payment completed. Stored Attendee in database: ${attendee.fullName} (${attendee.refCode})`
+          );
         } else {
-          logger.warn(`Attendee with refCode ${refCode} not found for webhook session.`);
+          logger.warn(`No pending attendee registration found for session ${session.id}`);
         }
-      } else if (regType === 'vendor' && refCode) {
-        const vendor = await Vendor.findOne({ refCode });
+      } else if (regType === 'vendor') {
+        const vendor = await vendorService.finalizeVendorRegistration(
+          session.id,
+          paymentIntentId,
+          amountPaid,
+          refCode
+        );
+
         if (vendor) {
-          if (vendor.paymentStatus !== 'paid') {
-            vendor.paymentStatus = 'paid';
-            vendor.status = 'approved';
-            vendor.stripePaymentIntentId = paymentIntentId;
-            vendor.paidAt = new Date();
-            if (session.amount_total) {
-              vendor.pricePaid = session.amount_total / 100;
-            }
-            await vendor.save();
-            logger.info(
-              `Payment confirmed for Vendor ${vendor.businessName} (${vendor.refCode})`
-            );
-          } else {
-            logger.info(`Vendor ${vendor.refCode} already marked as paid.`);
-          }
+          logger.info(
+            `Payment completed. Stored Vendor in database: ${vendor.businessName} (${vendor.refCode})`
+          );
         } else {
-          logger.warn(`Vendor with refCode ${refCode} not found for webhook session.`);
+          logger.warn(`No pending vendor registration found for session ${session.id}`);
         }
       }
       break;
@@ -87,18 +83,9 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       const metadata = session.metadata || {};
       const refCode = metadata.refCode;
 
-      if (metadata.type === 'attendee' && refCode) {
-        await Attendee.updateOne(
-          { refCode, paymentStatus: 'pending' },
-          { paymentStatus: 'failed' }
-        );
-        logger.info(`Attendee checkout session expired for refCode: ${refCode}`);
-      } else if (metadata.type === 'vendor' && refCode) {
-        await Vendor.updateOne(
-          { refCode, paymentStatus: 'pending' },
-          { paymentStatus: 'failed' }
-        );
-        logger.info(`Vendor checkout session expired for refCode: ${refCode}`);
+      if (refCode) {
+        await PendingRegistration.deleteOne({ refCode });
+        logger.info(`Checkout session expired. Removed pending draft for refCode: ${refCode}`);
       }
       break;
     }
@@ -112,7 +99,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
 /**
  * GET /api/v1/payments/verify-session/:sessionId
- * Allows the frontend return page to verify checkout session status and display passes
+ * Allows the frontend return page to verify checkout session status and display passes.
+ * If webhook has not yet processed the session, this finalizes and inserts the record into DB immediately.
  */
 export const verifySession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { sessionId } = req.params;
@@ -121,22 +109,9 @@ export const verifySession = asyncHandler(async (req: Request, res: Response): P
     throw new ApiError(400, 'Session ID is required');
   }
 
-  // Check Attendee by session ID
-  let attendee = await Attendee.findOne({ stripeSessionId: sessionId });
+  // 1. Check if Attendee is already saved in the database
+  let attendee: IAttendee | null = await Attendee.findOne({ stripeSessionId: sessionId });
   if (attendee) {
-    if (attendee.paymentStatus !== 'paid' && !sessionId.startsWith('mock_session_')) {
-      const stripeSession = await stripeService.retrieveCheckoutSession(sessionId);
-      if (stripeSession && stripeSession.payment_status === 'paid') {
-        attendee.paymentStatus = 'paid';
-        attendee.paidAt = new Date();
-        attendee.stripePaymentIntentId =
-          typeof stripeSession.payment_intent === 'string'
-            ? stripeSession.payment_intent
-            : null;
-        await attendee.save();
-      }
-    }
-
     res.status(200).json(
       new ApiResponse(
         200,
@@ -149,30 +124,18 @@ export const verifySession = asyncHandler(async (req: Request, res: Response): P
           paymentStatus: attendee.paymentStatus,
           fastTrackPass: attendee.fastTrackPass,
           pricePaid: attendee.pricePaid,
+          qrCode: attendee.qrCode,
+          publicPassUrl: attendee.publicPassUrl,
         },
-        'Attendee payment verification completed'
+        'Attendee payment verified and pass confirmed'
       )
     );
     return;
   }
 
-  // Check Vendor by session ID
-  let vendor = await Vendor.findOne({ stripeSessionId: sessionId });
+  // 2. Check if Vendor is already saved in the database
+  let vendor: IVendor | null = await Vendor.findOne({ stripeSessionId: sessionId });
   if (vendor) {
-    if (vendor.paymentStatus !== 'paid' && !sessionId.startsWith('mock_session_')) {
-      const stripeSession = await stripeService.retrieveCheckoutSession(sessionId);
-      if (stripeSession && stripeSession.payment_status === 'paid') {
-        vendor.paymentStatus = 'paid';
-        vendor.status = 'approved';
-        vendor.paidAt = new Date();
-        vendor.stripePaymentIntentId =
-          typeof stripeSession.payment_intent === 'string'
-            ? stripeSession.payment_intent
-            : null;
-        await vendor.save();
-      }
-    }
-
     res.status(200).json(
       new ApiResponse(
         200,
@@ -188,71 +151,123 @@ export const verifySession = asyncHandler(async (req: Request, res: Response): P
           qrCode: vendor.qrCode,
           publicProfileUrl: vendor.publicProfileUrl,
         },
-        'Vendor payment verification completed'
+        'Vendor payment verified and profile confirmed'
       )
     );
     return;
   }
 
-  // If not found by stripeSessionId, check if it's a valid Stripe session directly
-  if (!sessionId.startsWith('mock_session_')) {
-    const session = await stripeService.retrieveCheckoutSession(sessionId);
-    if (session && session.metadata?.refCode) {
-      const refCode = session.metadata.refCode;
-      if (session.metadata.type === 'attendee') {
-        const foundAtt = await Attendee.findOne({ refCode });
-        if (foundAtt) {
-          if (session.payment_status === 'paid' && foundAtt.paymentStatus !== 'paid') {
-            foundAtt.paymentStatus = 'paid';
-            foundAtt.stripeSessionId = sessionId;
-            foundAtt.paidAt = new Date();
-            await foundAtt.save();
-          }
-          res.status(200).json(
-            new ApiResponse(
-              200,
-              {
-                type: 'attendee',
-                refCode: foundAtt.refCode,
-                fullName: foundAtt.fullName,
-                paymentStatus: foundAtt.paymentStatus,
-                ticketType: foundAtt.ticketType,
-              },
-              'Attendee payment verification completed'
-            )
-          );
-          return;
-        }
-      } else if (session.metadata.type === 'vendor') {
-        const foundVnd = await Vendor.findOne({ refCode });
-        if (foundVnd) {
-          if (session.payment_status === 'paid' && foundVnd.paymentStatus !== 'paid') {
-            foundVnd.paymentStatus = 'paid';
-            foundVnd.status = 'approved';
-            foundVnd.stripeSessionId = sessionId;
-            foundVnd.paidAt = new Date();
-            await foundVnd.save();
-          }
-          res.status(200).json(
-            new ApiResponse(
-              200,
-              {
-                type: 'vendor',
-                refCode: foundVnd.refCode,
-                businessName: foundVnd.businessName,
-                paymentStatus: foundVnd.paymentStatus,
-                status: foundVnd.status,
-                qrCode: foundVnd.qrCode,
-              },
-              'Vendor payment verification completed'
-            )
-          );
-          return;
-        }
+  // 3. If mock session (in test mode), finalize from PendingRegistration directly
+  if (sessionId.startsWith('mock_session_')) {
+    if (sessionId.includes('_att_')) {
+      attendee = await attendeeService.finalizeAttendeeRegistration(sessionId);
+      if (attendee) {
+        res.status(200).json(
+          new ApiResponse(
+            200,
+            {
+              type: 'attendee',
+              refCode: attendee.refCode,
+              fullName: attendee.fullName,
+              ticketType: attendee.ticketType,
+              paymentStatus: attendee.paymentStatus,
+              qrCode: attendee.qrCode,
+            },
+            'Attendee pass confirmed'
+          )
+        );
+        return;
+      }
+    } else if (sessionId.includes('_vnd_')) {
+      vendor = await vendorService.finalizeVendorRegistration(sessionId);
+      if (vendor) {
+        res.status(200).json(
+          new ApiResponse(
+            200,
+            {
+              type: 'vendor',
+              refCode: vendor.refCode,
+              businessName: vendor.businessName,
+              paymentStatus: vendor.paymentStatus,
+              status: vendor.status,
+              qrCode: vendor.qrCode,
+            },
+            'Vendor profile confirmed'
+          )
+        );
+        return;
       }
     }
   }
 
-  throw new ApiError(404, `No registration found matching checkout session ${sessionId}`);
+  // 4. Retrieve live session from Stripe and finalize if paid
+  const stripeSession = await stripeService.retrieveCheckoutSession(sessionId);
+  if (stripeSession && stripeSession.payment_status === 'paid') {
+    const regType = stripeSession.metadata?.type;
+    const refCode = stripeSession.metadata?.refCode;
+    const paymentIntentId =
+      typeof stripeSession.payment_intent === 'string'
+        ? stripeSession.payment_intent
+        : null;
+    const amountPaid = stripeSession.amount_total
+      ? stripeSession.amount_total / 100
+      : undefined;
+
+    if (regType === 'attendee') {
+      attendee = await attendeeService.finalizeAttendeeRegistration(
+        sessionId,
+        paymentIntentId,
+        amountPaid,
+        refCode
+      );
+      if (attendee) {
+        res.status(200).json(
+          new ApiResponse(
+            200,
+            {
+              type: 'attendee',
+              refCode: attendee.refCode,
+              fullName: attendee.fullName,
+              ticketType: attendee.ticketType,
+              paymentStatus: attendee.paymentStatus,
+              fastTrackPass: attendee.fastTrackPass,
+              qrCode: attendee.qrCode,
+              publicPassUrl: attendee.publicPassUrl,
+            },
+            'Attendee payment verified and pass confirmed'
+          )
+        );
+        return;
+      }
+    } else if (regType === 'vendor') {
+      vendor = await vendorService.finalizeVendorRegistration(
+        sessionId,
+        paymentIntentId,
+        amountPaid,
+        refCode
+      );
+      if (vendor) {
+        res.status(200).json(
+          new ApiResponse(
+            200,
+            {
+              type: 'vendor',
+              refCode: vendor.refCode,
+              businessName: vendor.businessName,
+              paymentTier: vendor.paymentTier,
+              paymentStatus: vendor.paymentStatus,
+              status: vendor.status,
+              qrCode: vendor.qrCode,
+              publicProfileUrl: vendor.publicProfileUrl,
+            },
+            'Vendor payment verified and profile confirmed'
+          )
+        );
+        return;
+      }
+    }
+  }
+
+  throw new ApiError(404, `No completed registration found matching checkout session ${sessionId}`);
 });
 

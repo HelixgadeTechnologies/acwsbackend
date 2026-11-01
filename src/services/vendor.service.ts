@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Vendor, { generateRefCode } from '../models/vendor.model';
+import PendingRegistration from '../models/pendingRegistration.model';
 import ApiError from '../utils/ApiError';
 import env from '../config/env';
 import { generateQRCodeDataUrl } from './qrcode.service';
@@ -14,7 +15,7 @@ import {
 } from '../interfaces/vendor.interface';
 
 export interface VendorRegistrationResult {
-  vendor: IVendor;
+  vendor: IVendor | null;
   refCode: string;
   qrCode?: string;
   publicProfileUrl?: string;
@@ -34,12 +35,14 @@ export const buildPublicProfileUrl = (refCode: string): string => {
 };
 
 /**
- * Register a new vendor submission and automatically generate QR code and Stripe checkout session.
+ * Register a new vendor submission.
+ * NOTE: The record is NOT stored in Vendor collection until Stripe payment completes.
+ * Instead, it is staged in PendingRegistration with a 24-hour TTL.
  */
 export const registerVendor = async (
   data: CreateVendorInput
 ): Promise<VendorRegistrationResult> => {
-  // Check if vendor already exists with the same email
+  // Check if vendor already exists with the same email in the confirmed Vendor collection
   const existingVendor = await Vendor.findOne({ email: data.email.toLowerCase().trim() });
   if (existingVendor) {
     throw new ApiError(
@@ -49,41 +52,112 @@ export const registerVendor = async (
   }
 
   const refCode = data.refCode ? data.refCode.toUpperCase().trim() : generateRefCode();
-  const publicProfileUrl = buildPublicProfileUrl(refCode);
-  const qrCode = await generateQRCodeDataUrl(publicProfileUrl);
   const pricing = getVendorTierPricing(data.paymentTier);
 
-  const vendor = await Vendor.create({
-    ...data,
+  // Stage in PendingRegistration (NOT in Vendor collection)
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const pending = await PendingRegistration.create({
     refCode,
-    status: 'pending',
-    paymentStatus: data.paymentStatus || 'pending',
-    pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
-    publicProfileUrl,
-    qrCode,
+    type: 'vendor',
+    data: {
+      ...data,
+      refCode,
+      pricePaid: typeof data.pricePaid === 'number' ? data.pricePaid : pricing.priceInPounds,
+      paymentTier: data.paymentTier || 'standard',
+    },
+    deviceInfo: data.registrationDevice || null,
+    expiresAt,
   });
 
-  let checkoutUrl: string | null = null;
-  let sessionId: string | null = null;
+  const sessionResult = await stripeService.createVendorCheckoutSession({
+    email: data.email,
+    businessName: data.businessName,
+    refCode,
+    paymentTier: data.paymentTier || 'standard',
+    pendingId: pending._id.toString(),
+  });
 
-  if (pricing.amountInPence > 0) {
-    const sessionResult = await stripeService.createVendorCheckoutSession(vendor);
-    if (sessionResult) {
-      checkoutUrl = sessionResult.checkoutUrl;
-      sessionId = sessionResult.sessionId;
-      vendor.stripeSessionId = sessionId;
-      await vendor.save();
-    }
+  if (sessionResult) {
+    pending.sessionId = sessionResult.sessionId;
+    await pending.save();
   }
 
   return {
-    vendor,
-    refCode: vendor.refCode,
-    qrCode: vendor.qrCode,
-    publicProfileUrl: vendor.publicProfileUrl,
-    checkoutUrl,
-    sessionId,
+    vendor: null,
+    refCode,
+    checkoutUrl: sessionResult?.checkoutUrl || null,
+    sessionId: sessionResult?.sessionId || null,
   };
+};
+
+/**
+ * Finalizes vendor registration AFTER Stripe payment is confirmed.
+ * Inserts the record into the permanent Vendor collection, sets status = 'approved', and generates QR code.
+ */
+export const finalizeVendorRegistration = async (
+  sessionId: string,
+  paymentIntentId?: string | null,
+  amountPaid?: number,
+  fallbackRefCode?: string
+): Promise<IVendor | null> => {
+  // 1. Idempotency check: see if Vendor record already exists
+  let vendor = await Vendor.findOne({
+    $or: [
+      { stripeSessionId: sessionId },
+      ...(paymentIntentId ? [{ stripePaymentIntentId: paymentIntentId }] : []),
+      ...(fallbackRefCode ? [{ refCode: fallbackRefCode }] : []),
+    ],
+  });
+
+  if (vendor) {
+    if (vendor.paymentStatus !== 'paid') {
+      vendor.paymentStatus = 'paid';
+      vendor.status = 'approved';
+      vendor.paidAt = new Date();
+      if (paymentIntentId) vendor.stripePaymentIntentId = paymentIntentId;
+      if (amountPaid) vendor.pricePaid = amountPaid;
+      await vendor.save();
+    }
+    return vendor;
+  }
+
+  // 2. Find staged PendingRegistration
+  const pending = await PendingRegistration.findOne({
+    $or: [
+      { sessionId },
+      ...(fallbackRefCode ? [{ refCode: fallbackRefCode }] : []),
+    ],
+    type: 'vendor',
+  });
+
+  if (!pending) {
+    return null;
+  }
+
+  const rawData = pending.data || {};
+  const refCode = pending.refCode;
+  const publicProfileUrl = buildPublicProfileUrl(refCode);
+  const qrCode = await generateQRCodeDataUrl(publicProfileUrl);
+  const pricing = getVendorTierPricing(rawData.paymentTier);
+
+  vendor = await Vendor.create({
+    ...rawData,
+    refCode,
+    status: 'approved',
+    paymentStatus: 'paid',
+    pricePaid: typeof amountPaid === 'number' ? amountPaid : (rawData.pricePaid || pricing.priceInPounds),
+    publicProfileUrl,
+    qrCode,
+    stripeSessionId: sessionId,
+    stripePaymentIntentId: paymentIntentId || null,
+    paidAt: new Date(),
+    registrationDevice: pending.deviceInfo || rawData.registrationDevice || null,
+  });
+
+  // Clean up pending staging record
+  await PendingRegistration.deleteOne({ _id: pending._id });
+
+  return vendor;
 };
 
 /**

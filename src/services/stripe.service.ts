@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import { IAttendee } from '../interfaces/attendee.interface';
-import { IVendor } from '../interfaces/vendor.interface';
+import { IVendor, PaymentTier } from '../interfaces/vendor.interface';
 import { getAttendeeTicketPricing, getVendorTierPricing } from '../config/pricing';
 
 export const stripe = new Stripe(env.stripeSecretKey || 'sk_test_placeholder');
@@ -12,6 +12,24 @@ export interface CheckoutSessionResult {
   checkoutUrl: string | null;
 }
 
+export interface AttendeeCheckoutInput {
+  email: string;
+  fullName: string;
+  refCode: string;
+  ticketType: string;
+  pendingId?: string;
+  _id?: any;
+}
+
+export interface VendorCheckoutInput {
+  email: string;
+  businessName: string;
+  refCode: string;
+  paymentTier: PaymentTier;
+  pendingId?: string;
+  _id?: any;
+}
+
 const isPlaceholderKey =
   !env.stripeSecretKey || env.stripeSecretKey.includes('placeholder');
 
@@ -19,7 +37,7 @@ const isPlaceholderKey =
  * Creates a Stripe Checkout Session for Attendee ticket purchase
  */
 export const createAttendeeCheckoutSession = async (
-  attendee: IAttendee
+  attendee: AttendeeCheckoutInput | IAttendee
 ): Promise<CheckoutSessionResult | null> => {
   const pricing = getAttendeeTicketPricing(attendee.ticketType);
 
@@ -36,10 +54,12 @@ export const createAttendeeCheckoutSession = async (
     };
   }
 
+  const clientId = (attendee as any).pendingId || (attendee as any)._id?.toString() || attendee.refCode;
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: attendee.email,
-    client_reference_id: attendee._id.toString(),
+    client_reference_id: clientId,
     line_items: [
       {
         price_data: {
@@ -55,7 +75,7 @@ export const createAttendeeCheckoutSession = async (
     ],
     metadata: {
       type: 'attendee',
-      attendeeId: attendee._id.toString(),
+      attendeeId: clientId,
       refCode: attendee.refCode,
       ticketType: attendee.ticketType,
     },
@@ -73,7 +93,7 @@ export const createAttendeeCheckoutSession = async (
  * Creates a Stripe Checkout Session for Vendor exhibition tier
  */
 export const createVendorCheckoutSession = async (
-  vendor: IVendor
+  vendor: VendorCheckoutInput | IVendor
 ): Promise<CheckoutSessionResult | null> => {
   const pricing = getVendorTierPricing(vendor.paymentTier);
 
@@ -89,10 +109,12 @@ export const createVendorCheckoutSession = async (
     };
   }
 
+  const clientId = (vendor as any).pendingId || (vendor as any)._id?.toString() || vendor.refCode;
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: vendor.email,
-    client_reference_id: vendor._id.toString(),
+    client_reference_id: clientId,
     line_items: [
       {
         price_data: {
@@ -108,7 +130,7 @@ export const createVendorCheckoutSession = async (
     ],
     metadata: {
       type: 'vendor',
-      vendorId: vendor._id.toString(),
+      vendorId: clientId,
       refCode: vendor.refCode,
       paymentTier: vendor.paymentTier,
     },
