@@ -166,6 +166,10 @@ const vendorSchema = new Schema<IVendor>(
       type: deviceInfoSchema,
       default: null,
     },
+    locationData: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
     lastScannedDevice: {
       type: deviceInfoSchema,
       default: null,

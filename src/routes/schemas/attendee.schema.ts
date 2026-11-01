@@ -10,6 +10,9 @@ export const createAttendeeSchema = Joi.object({
     'string.empty': 'Email address is required',
   }),
   phone: Joi.string().trim().allow('', null).optional().default(''),
+  instagram: Joi.string().trim().allow('', null).optional().default(''),
+  locationData: Joi.object().allow(null).optional(),
+  deviceInfo: Joi.object().allow(null).optional(),
   attendeeType: Joi.string()
     .valid(
       'Bride',

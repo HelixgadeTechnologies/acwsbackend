@@ -41,6 +41,15 @@ const attendeeSchema = new Schema<IAttendee>(
       trim: true,
       default: '',
     },
+    instagram: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    locationData: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
     attendeeType: {
       type: String,
       trim: true,

@@ -37,6 +37,7 @@ export interface IVendor extends Document {
   qrCode?: string;
   publicProfileUrl?: string;
   registrationDevice?: IDeviceInfo | null;
+  locationData?: any;
   lastScannedDevice?: IDeviceInfo | null;
   scanCount: number;
   createdAt: Date;
@@ -80,6 +81,8 @@ export interface CreateVendorInput {
   stripePaymentIntentId?: string | null;
   paidAt?: Date | null;
   registrationDevice?: IDeviceInfo | null;
+  locationData?: any;
+  deviceInfo?: any;
   privacyAcknowledged?: boolean;
   marketingConsent?: boolean;
   notes?: string;

@@ -9,6 +9,8 @@ export interface IAttendee extends Document {
   fullName: string;
   email: string;
   phone?: string;
+  instagram?: string;
+  locationData?: any;
   attendeeType: string;
   weddingTimeframe?: string;
   weddingLocation?: string;
@@ -62,6 +64,9 @@ export interface CreateAttendeeInput {
   fullName: string;
   email: string;
   phone?: string;
+  instagram?: string;
+  locationData?: any;
+  deviceInfo?: any;
   attendeeType?: string;
   weddingTimeframe?: string;
   weddingLocation?: string;
