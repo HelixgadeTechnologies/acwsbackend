@@ -47,11 +47,16 @@ export const createAttendeeCheckoutSession = async (
   }
 
   if (isPlaceholderKey) {
-    // In local development without a configured Stripe key, log warning
-    return {
-      sessionId: `mock_session_att_${attendee.refCode}`,
-      checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_att_${attendee.refCode}&refCode=${attendee.refCode}&type=attendee`,
-    };
+    if (process.env.NODE_ENV === 'test' || process.env.ALLOW_MOCK_PAYMENTS === 'true') {
+      return {
+        sessionId: `mock_session_att_${attendee.refCode}`,
+        checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_att_${attendee.refCode}&refCode=${attendee.refCode}&type=attendee`,
+      };
+    }
+    throw new ApiError(
+      500,
+      'Stripe Secret Key is missing or set to placeholder in server memory. Please restart your backend server to load the updated .env file.'
+    );
   }
 
   const clientId = (attendee as any).pendingId || (attendee as any)._id?.toString() || attendee.refCode;
@@ -102,11 +107,16 @@ export const createVendorCheckoutSession = async (
   }
 
   if (isPlaceholderKey) {
-    // In local development without a configured Stripe key, return a mock URL
-    return {
-      sessionId: `mock_session_vnd_${vendor.refCode}`,
-      checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_vnd_${vendor.refCode}&refCode=${vendor.refCode}&type=vendor`,
-    };
+    if (process.env.NODE_ENV === 'test' || process.env.ALLOW_MOCK_PAYMENTS === 'true') {
+      return {
+        sessionId: `mock_session_vnd_${vendor.refCode}`,
+        checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_vnd_${vendor.refCode}&refCode=${vendor.refCode}&type=vendor`,
+      };
+    }
+    throw new ApiError(
+      500,
+      'Stripe Secret Key is missing or set to placeholder in server memory. Please restart your backend server to load the updated .env file.'
+    );
   }
 
   const clientId = (vendor as any).pendingId || (vendor as any)._id?.toString() || vendor.refCode;
