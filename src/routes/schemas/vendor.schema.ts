@@ -63,6 +63,8 @@ export const createVendorSchema = Joi.object({
   curatorNotes: Joi.string().allow('', null).optional(),
   locationData: Joi.object().allow(null).optional(),
   deviceInfo: Joi.object().allow(null).optional(),
+  frontendUrl: Joi.string().trim().allow('', null).optional(),
+  returnUrl: Joi.string().trim().allow('', null).optional(),
 });
 
 export const updateVendorStatusSchema = Joi.object({
@@ -76,6 +78,8 @@ export const updateVendorStatusSchema = Joi.object({
   curatorNotes: Joi.string().allow('', null).optional(),
   locationData: Joi.object().allow(null).optional(),
   deviceInfo: Joi.object().allow(null).optional(),
+  frontendUrl: Joi.string().trim().allow('', null).optional(),
+  returnUrl: Joi.string().trim().allow('', null).optional(),
 });
 
 export const vendorQuerySchema = Joi.object({

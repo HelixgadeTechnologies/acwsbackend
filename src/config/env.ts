@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const REQUIRED: string[] = [
   'PORT',
@@ -49,11 +49,21 @@ const env: EnvConfig = {
     .filter(Boolean),
   publicProfileBaseUrl:
     process.env.PUBLIC_PROFILE_BASE_URL || 'http://localhost:5000/api/v1/vendors/public',
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
-  stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
-  stripeCurrency: (process.env.STRIPE_CURRENCY || 'gbp').toLowerCase(),
-  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, ''),
+  get stripeSecretKey(): string {
+    return process.env.STRIPE_SECRET_KEY || '';
+  },
+  get stripePublishableKey(): string {
+    return process.env.STRIPE_PUBLISHABLE_KEY || '';
+  },
+  get stripeWebhookSecret(): string {
+    return process.env.STRIPE_WEBHOOK_SECRET || '';
+  },
+  get stripeCurrency(): string {
+    return (process.env.STRIPE_CURRENCY || 'gbp').toLowerCase();
+  },
+  get frontendUrl(): string {
+    return (process.env.FRONTEND_URL || 'http://acwsevents.com').replace(/\/$/, '');
+  },
 };
 
 export default env;

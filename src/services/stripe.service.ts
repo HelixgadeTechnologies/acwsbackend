@@ -5,7 +5,23 @@ import { IAttendee } from '../interfaces/attendee.interface';
 import { IVendor, PaymentTier } from '../interfaces/vendor.interface';
 import { getAttendeeTicketPricing, getVendorTierPricing } from '../config/pricing';
 
-export const stripe = new Stripe(env.stripeSecretKey || 'sk_test_placeholder');
+let stripeInstance: Stripe | null = null;
+let lastApiKey = '';
+
+export const getStripe = (): Stripe => {
+  const key = env.stripeSecretKey || 'sk_test_placeholder';
+  if (!stripeInstance || lastApiKey !== key) {
+    stripeInstance = new Stripe(key);
+    lastApiKey = key;
+  }
+  return stripeInstance;
+};
+
+export const stripe = new Proxy({} as Stripe, {
+  get: (_target, prop: keyof Stripe) => {
+    return (getStripe() as any)[prop];
+  },
+});
 
 export interface CheckoutSessionResult {
   sessionId: string;
@@ -19,6 +35,7 @@ export interface AttendeeCheckoutInput {
   ticketType: string;
   pendingId?: string;
   _id?: any;
+  frontendUrl?: string;
 }
 
 export interface VendorCheckoutInput {
@@ -28,9 +45,10 @@ export interface VendorCheckoutInput {
   paymentTier: PaymentTier;
   pendingId?: string;
   _id?: any;
+  frontendUrl?: string;
 }
 
-const isPlaceholderKey =
+const isPlaceholderKey = () =>
   !env.stripeSecretKey || env.stripeSecretKey.includes('placeholder');
 
 /**
@@ -46,11 +64,14 @@ export const createAttendeeCheckoutSession = async (
     return null;
   }
 
-  if (isPlaceholderKey) {
+  const targetFrontend =
+    (attendee as any).frontendUrl || env.frontendUrl || 'http://acwsevents.com';
+
+  if (isPlaceholderKey()) {
     if (process.env.NODE_ENV === 'test' || process.env.ALLOW_MOCK_PAYMENTS === 'true') {
       return {
         sessionId: `mock_session_att_${attendee.refCode}`,
-        checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_att_${attendee.refCode}&refCode=${attendee.refCode}&type=attendee`,
+        checkoutUrl: `${targetFrontend}/payment/success?session_id=mock_session_att_${attendee.refCode}&refCode=${attendee.refCode}&type=attendee`,
       };
     }
     throw new ApiError(
@@ -84,8 +105,8 @@ export const createAttendeeCheckoutSession = async (
       refCode: attendee.refCode,
       ticketType: attendee.ticketType,
     },
-    success_url: `${env.frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&refCode=${attendee.refCode}&type=attendee`,
-    cancel_url: `${env.frontendUrl}/payment/cancelled?refCode=${attendee.refCode}&type=attendee`,
+    success_url: `${targetFrontend}/payment/success?session_id={CHECKOUT_SESSION_ID}&refCode=${attendee.refCode}&type=attendee`,
+    cancel_url: `${targetFrontend}/payment/cancelled?refCode=${attendee.refCode}&type=attendee`,
   });
 
   return {
@@ -106,11 +127,14 @@ export const createVendorCheckoutSession = async (
     return null;
   }
 
-  if (isPlaceholderKey) {
+  const targetFrontend =
+    (vendor as any).frontendUrl || env.frontendUrl || 'http://acwsevents.com';
+
+  if (isPlaceholderKey()) {
     if (process.env.NODE_ENV === 'test' || process.env.ALLOW_MOCK_PAYMENTS === 'true') {
       return {
         sessionId: `mock_session_vnd_${vendor.refCode}`,
-        checkoutUrl: `${env.frontendUrl}/payment/success?session_id=mock_session_vnd_${vendor.refCode}&refCode=${vendor.refCode}&type=vendor`,
+        checkoutUrl: `${targetFrontend}/payment/success?session_id=mock_session_vnd_${vendor.refCode}&refCode=${vendor.refCode}&type=vendor`,
       };
     }
     throw new ApiError(
@@ -144,8 +168,8 @@ export const createVendorCheckoutSession = async (
       refCode: vendor.refCode,
       paymentTier: vendor.paymentTier,
     },
-    success_url: `${env.frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&refCode=${vendor.refCode}&type=vendor`,
-    cancel_url: `${env.frontendUrl}/payment/cancelled?refCode=${vendor.refCode}&type=vendor`,
+    success_url: `${targetFrontend}/payment/success?session_id={CHECKOUT_SESSION_ID}&refCode=${vendor.refCode}&type=vendor`,
+    cancel_url: `${targetFrontend}/payment/cancelled?refCode=${vendor.refCode}&type=vendor`,
   });
 
   return {

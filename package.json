@@ -8,7 +8,7 @@
   "description": "Secured Node.js + Express + MongoDB REST API boilerplate (TypeScript)",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --watch .env src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test:stripe": "ts-node --files src/scripts/testStripeFlow.ts",

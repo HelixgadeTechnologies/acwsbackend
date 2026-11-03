@@ -105,6 +105,10 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ── Payment Return Pages (HTML & API) ────────────────────────────────────
+app.get('/payment/success', paymentController.handlePaymentSuccess);
+app.get('/payment/cancelled', paymentController.handlePaymentCancelled);
+
 // ── API routes ────────────────────────────────────────────────────────────
 app.use('/api/v1', routes);
 

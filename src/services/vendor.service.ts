@@ -75,6 +75,7 @@ export const registerVendor = async (
     refCode,
     paymentTier: data.paymentTier || 'standard',
     pendingId: pending._id.toString(),
+    frontendUrl: data.frontendUrl,
   });
 
   if (sessionResult) {

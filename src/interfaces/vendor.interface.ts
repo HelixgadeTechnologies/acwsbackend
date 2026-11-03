@@ -87,6 +87,8 @@ export interface CreateVendorInput {
   marketingConsent?: boolean;
   notes?: string;
   curatorNotes?: string;
+  frontendUrl?: string;
+  returnUrl?: string;
 }
 
 export interface VendorQueryFilters {

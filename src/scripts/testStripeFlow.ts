@@ -173,6 +173,21 @@ async function runTests() {
   assert(typeof vendorService.finalizeVendorRegistration === 'function', 'finalizeVendorRegistration must exist');
   console.log('✓ Deferred storage service functions and staging collection verified.');
 
+  // Test 9: Frontend URL Resolution
+  console.log('Testing Frontend URL Resolution...');
+  const { resolveFrontendUrl } = require('../utils/url.util');
+  const mockReqFromWebsite: any = {
+    get: (header: string) => header.toLowerCase() === 'origin' ? 'http://acwsevents.com' : undefined,
+    body: {},
+  };
+  assert.strictEqual(resolveFrontendUrl(mockReqFromWebsite), 'http://acwsevents.com');
+  const mockReqWithCustomBody: any = {
+    get: () => undefined,
+    body: { frontendUrl: 'https://acwsevents.com' },
+  };
+  assert.strictEqual(resolveFrontendUrl(mockReqWithCustomBody), 'https://acwsevents.com');
+  console.log('✓ Frontend URL resolution correctly detects website origin and body override.');
+
   console.log('--- ALL STRIPE INTEGRATION TESTS PASSED ---');
 }
 

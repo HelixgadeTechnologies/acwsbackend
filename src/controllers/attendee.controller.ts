@@ -3,6 +3,7 @@ import * as attendeeService from '../services/attendee.service';
 import asyncHandler from '../utils/asyncHandler';
 import ApiResponse from '../utils/ApiResponse';
 import { extractDeviceInfo } from '../utils/device.util';
+import { resolveFrontendUrl } from '../utils/url.util';
 import { recordScanEvent } from '../services/scanLog.service';
 
 /**
@@ -11,9 +12,11 @@ import { recordScanEvent } from '../services/scanLog.service';
  */
 export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const deviceInfo = extractDeviceInfo(req);
+  const frontendUrl = resolveFrontendUrl(req);
   const result = await attendeeService.registerAttendee({
     ...req.body,
     registrationDevice: deviceInfo,
+    frontendUrl,
   });
 
   const message = result.checkoutUrl

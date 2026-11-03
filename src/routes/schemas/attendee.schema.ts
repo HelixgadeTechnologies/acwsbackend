@@ -44,6 +44,8 @@ export const createAttendeeSchema = Joi.object({
   }),
   marketingConsent: Joi.boolean().default(false),
   partnerConsent: Joi.boolean().default(false),
+  frontendUrl: Joi.string().trim().allow('', null).optional(),
+  returnUrl: Joi.string().trim().allow('', null).optional(),
 });
 
 export const attendeeQuerySchema = Joi.object({

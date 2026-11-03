@@ -93,6 +93,8 @@ export interface CreateAttendeeInput {
   weddingDate?: string;
   fastTrackPass?: boolean;
   checkedIn?: boolean;
+  frontendUrl?: string;
+  returnUrl?: string;
 }
 
 export interface AttendeeQueryFilters {

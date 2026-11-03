@@ -671,6 +671,38 @@
         }
       }
     },
+    "/payments/success": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Return destination page & API after Stripe Checkout",
+        "description": "Displays branded responsive HTML confirmation and pass, or returns JSON if requested with Accept: application/json.",
+        "parameters": [
+          { "name": "session_id", "in": "query", "schema": { "type": "string" }, "description": "Stripe checkout session ID" },
+          { "name": "refCode", "in": "query", "schema": { "type": "string" }, "description": "Reference code" },
+          { "name": "type", "in": "query", "schema": { "type": "string" }, "description": "attendee or vendor" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Confirmation pass screen or JSON details"
+          }
+        }
+      }
+    },
+    "/payments/cancelled": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Return destination if checkout cancelled",
+        "description": "Displays cancellation notice or returns JSON.",
+        "parameters": [
+          { "name": "refCode", "in": "query", "schema": { "type": "string" }, "description": "Reference code" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancellation notice"
+          }
+        }
+      }
+    },
     "/payments/webhook": {
       "post": {
         "tags": ["Payments"],
