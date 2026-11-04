@@ -58,6 +58,7 @@ export interface PublicVendorProfile {
 }
 
 export interface CreateVendorInput {
+  clientPriceInPence?: number;
   refCode?: string;
   businessName: string;
   contactPerson?: string;

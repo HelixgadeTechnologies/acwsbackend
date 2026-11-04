@@ -60,6 +60,7 @@ export interface PublicAttendeeProfile {
 }
 
 export interface CreateAttendeeInput {
+  clientPriceInPence?: number;
   refCode?: string;
   fullName: string;
   email: string;

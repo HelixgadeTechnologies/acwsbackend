@@ -5,8 +5,9 @@ const normalizePaymentTier = (value: any) => {
     return 'standard';
   }
   const clean = value.toLowerCase().trim();
-  if (clean.includes('catwalk')) return 'catwalk';
-  if (clean.includes('premium')) return 'premium';
+  if (clean.includes('catwalk') || clean.includes('runway')) return 'catwalk';
+  if (clean.includes('premium') || clean.includes('signature')) return 'premium';
+  if (clean.includes('essential')) return 'standard';
   if (clean.includes('executive')) return 'executive';
   if (clean.includes('standard')) return 'standard';
   if (['standard', 'premium', 'catwalk', 'executive'].includes(clean)) return clean;
@@ -47,6 +48,7 @@ export const createVendorSchema = Joi.object({
   typicalSpend: Joi.string().trim().allow('', null).default('Not specified'),
   objectives: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
   discoveryChannels: Joi.alternatives().try(Joi.array(), Joi.string()).custom(normalizeArray).default([]),
+  clientPriceInPence: Joi.number().optional().allow(null),
   paymentTier: Joi.alternatives()
     .try(Joi.string().allow('', null), Joi.any())
     .custom(normalizePaymentTier)

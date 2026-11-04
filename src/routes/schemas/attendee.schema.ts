@@ -39,6 +39,7 @@ export const createAttendeeSchema = Joi.object({
     'string.empty': 'Ticket type is required',
   }),
   ticketPrice: Joi.string().trim().allow('', null).optional().default('£20'),
+  clientPriceInPence: Joi.number().optional().allow(null),
   privacyAcknowledged: Joi.boolean().valid(true).required().messages({
     'any.only': 'You must acknowledge the Privacy Notice to register',
   }),

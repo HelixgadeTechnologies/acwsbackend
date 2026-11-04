@@ -31,20 +31,20 @@ async function runTests() {
   // Test 2: Vendor Tier Pricing
   console.log('Testing Vendor Tier Pricing...');
   const stdPricing = getVendorTierPricing('standard');
-  assert.strictEqual(stdPricing.priceInPounds, 250);
-  assert.strictEqual(stdPricing.amountInPence, 25000);
+  assert.strictEqual(stdPricing.priceInPounds, 650);
+  assert.strictEqual(stdPricing.amountInPence, 65000);
 
   const premPricing = getVendorTierPricing('premium');
-  assert.strictEqual(premPricing.priceInPounds, 450);
-  assert.strictEqual(premPricing.amountInPence, 45000);
+  assert.strictEqual(premPricing.priceInPounds, 1050);
+  assert.strictEqual(premPricing.amountInPence, 105000);
 
   const catwalkPricing = getVendorTierPricing('catwalk');
-  assert.strictEqual(catwalkPricing.priceInPounds, 650);
-  assert.strictEqual(catwalkPricing.amountInPence, 65000);
+  assert.strictEqual(catwalkPricing.priceInPounds, 500);
+  assert.strictEqual(catwalkPricing.amountInPence, 50000);
 
   const execPricing = getVendorTierPricing('executive');
-  assert.strictEqual(execPricing.priceInPounds, 950);
-  assert.strictEqual(execPricing.amountInPence, 95000);
+  assert.strictEqual(execPricing.priceInPounds, 1500);
+  assert.strictEqual(execPricing.amountInPence, 150000);
   console.log('✓ Vendor Tier Pricing passed.');
 
   // Test 3: Stripe Checkout Session Mock/Live Generator

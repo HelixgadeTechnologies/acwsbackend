@@ -92,6 +92,7 @@ export const registerAttendee = async (
     fullName: data.fullName,
     refCode,
     ticketType: data.ticketType || 'General Admission',
+    clientPriceInPence: data.clientPriceInPence,
     pendingId: pending._id.toString(),
     frontendUrl: data.frontendUrl,
   });

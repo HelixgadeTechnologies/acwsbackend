@@ -33,6 +33,7 @@ export interface AttendeeCheckoutInput {
   fullName: string;
   refCode: string;
   ticketType: string;
+  clientPriceInPence?: number;
   pendingId?: string;
   _id?: any;
   frontendUrl?: string;
@@ -43,6 +44,7 @@ export interface VendorCheckoutInput {
   businessName: string;
   refCode: string;
   paymentTier: PaymentTier;
+  clientPriceInPence?: number;
   pendingId?: string;
   _id?: any;
   frontendUrl?: string;
@@ -58,6 +60,13 @@ export const createAttendeeCheckoutSession = async (
   attendee: AttendeeCheckoutInput | IAttendee
 ): Promise<CheckoutSessionResult | null> => {
   const pricing = getAttendeeTicketPricing(attendee.ticketType);
+
+  const clientPriceAtt = (attendee as any).clientPriceInPence;
+  if (typeof clientPriceAtt === 'number' && clientPriceAtt > 0 && clientPriceAtt !== pricing.amountInPence) {
+    console.warn(
+      `[Stripe Price Guard] Price mismatch for attendee ${attendee.refCode} (${attendee.ticketType}): frontend sent ${clientPriceAtt}p, authoritative backend price is ${pricing.amountInPence}p.`
+    );
+  }
 
   // If ticket is free / complimentary, no Stripe session needed
   if (pricing.amountInPence <= 0) {
@@ -122,6 +131,13 @@ export const createVendorCheckoutSession = async (
   vendor: VendorCheckoutInput | IVendor
 ): Promise<CheckoutSessionResult | null> => {
   const pricing = getVendorTierPricing(vendor.paymentTier);
+
+  const clientPriceVnd = (vendor as any).clientPriceInPence;
+  if (typeof clientPriceVnd === 'number' && clientPriceVnd > 0 && clientPriceVnd !== pricing.amountInPence) {
+    console.warn(
+      `[Stripe Price Guard] Price mismatch for vendor ${vendor.refCode} (${vendor.paymentTier}): frontend sent ${clientPriceVnd}p, authoritative backend price is ${pricing.amountInPence}p.`
+    );
+  }
 
   if (pricing.amountInPence <= 0) {
     return null;
